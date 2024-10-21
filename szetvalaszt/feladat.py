@@ -4,27 +4,20 @@
 
 def elvalasztas(szo:str):
     mgh = {'a', 'e', 'i', 'o', 'ö', 'u', 'ü', 'á', 'é', 'í', 'ó', 'ő', 'ú', 'ű'}
-    tagolt = list()
-    tag_eleje = 0
-    while szo[tag_eleje] not in mgh:
-        tag_eleje += 1
-    tagolt.append(szo[0:tag_eleje+1])
-    tag_eleje += 1
+    mltp = {'cs', 'dz', 'gy', 'ly', 'ny', 'sz', 'ty', 'zs', 'dzs'}
 
-    for tag_vege in range(tag_eleje,len(szo)):
-        if szo[tag_vege] in mgh:
-            tagolt.append(szo[tag_eleje:tag_vege+1])
-            tag_eleje = tag_vege + 1
-        if tag_vege == len(szo) - 1:
-            tagolt[-1] += szo[tag_eleje:tag_vege+1]
+    betuk = [c for c in szo]
 
-    for i in range(1,len(tagolt)):
-        if len(tagolt[i]) > 1:
-            while tagolt[i][0] not in mgh and tagolt[i][1] not in mgh:
-                tagolt[i-1] += tagolt[i][0]
-                tagolt[i] = tagolt[i][1:]
+    match betuk:
+        case [*_, 'c', 's']:
+            pass
 
-    return "-".join(tagolt)
+        case ['c', 's', *_]:
+            pass
+
+        case _:
+            pass
+
 
 
 #print(szetvalaszt("lalabamam"))
