@@ -1,4 +1,8 @@
-def szetvalaszt(szo:str):
+#Nev: Vincze Nándor
+#Neptun: MOYLJW
+#h: h379409
+
+def elvalasztas(szo:str):
     mgh = {'a', 'e', 'i', 'o', 'ö', 'u', 'ü', 'á', 'é', 'í', 'ó', 'ő', 'ú', 'ű'}
     tagolt = list()
     tag_eleje = 0
@@ -23,9 +27,9 @@ def szetvalaszt(szo:str):
     return "-".join(tagolt)
 
 
-print(szetvalaszt("lalabamam"))
-print(szetvalaszt("alma"))
-print(szetvalaszt("abba"))
-print(szetvalaszt("lead"))
-print(szetvalaszt("amper"))
-print(szetvalaszt("centrum"))
+#print(szetvalaszt("lalabamam"))
+#print(szetvalaszt("alma"))
+#print(szetvalaszt("abba"))
+#print(szetvalaszt("lead"))
+#print(szetvalaszt("amper"))
+#print(szetvalaszt("centrum"))
