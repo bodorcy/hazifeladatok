@@ -5,28 +5,16 @@ import distutils.util
 
 
 def legnagyobb_stadion(path):
+    max_capacity_stadium = ('Nincs','Nincs',0) #city, stadium, capacity
+
     with open(path, 'r') as file:
-        stadium = dict()
-        for key in [k.strip() for k in file.readline().split(',')]:
-            stadium[key] = None
-
-        max = stadium
-        record = ""
+        file.readline()
         for line in file:
-            record += line
-            if record.count(',') < 7:
-                continue
+            stadium = tuple(data.strip() for data in line.split(',')[2:5])
+            if int(stadium[2]) > int(max_capacity_stadium[2]):
+                max_capacity_stadium = stadium
 
-            data = [d.strip() for d in record.split(',')]
+    with open("legnagyobb.txt", "w") as file:
+        file.write(f"{{{max_capacity_stadium[1]}}} ({{{max_capacity_stadium[0]}}})\n")
 
-            for key, data in zip(stadium.keys(), data):
-                stadium[key] = data
-
-            if stadium["Capacity"] > max["Capacity"]:
-                max = stadium
-
-            record = ""
-
-            return "{" + max["Stadium"] + "}" + "({" + max["City"] + "})"
-
-legnagyobb_stadion("stadium.csv")
+print(legnagyobb_stadion("stadium.csv"))
