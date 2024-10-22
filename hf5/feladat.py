@@ -1,7 +1,6 @@
 # Nev: Vincze Nándor
 # Neptun: MOYLJW
 # h: h379409
-import distutils.util
 
 
 def legnagyobb_stadion(path):
@@ -17,4 +16,6 @@ def legnagyobb_stadion(path):
     with open("legnagyobb.txt", "w") as file:
         file.write(f"{{{max_capacity_stadium[1]}}} ({{{max_capacity_stadium[0]}}})\n")
 
-print(legnagyobb_stadion("stadium.csv"))
+def osszes_arena(path):
+    nagyok = ""
+    pass
