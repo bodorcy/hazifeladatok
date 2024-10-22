@@ -10,6 +10,7 @@ def legnagyobb_stadion(path):
         for key in [k.strip() for k in file.readline().split(',')]:
             stadium[key] = None
 
+        max = stadium
         record = ""
         for line in file:
             record += line
@@ -18,9 +19,14 @@ def legnagyobb_stadion(path):
 
             data = [d.strip() for d in record.split(',')]
 
-            for key, data in stadium.keys(), data:
+            for key, data in zip(stadium.keys(), data):
                 stadium[key] = data
 
-
+            if stadium["Capacity"] > max["Capacity"]:
+                max = stadium
 
             record = ""
+
+            return "{" + max["Stadium"] + "}" + "({" + max["City"] + "})"
+
+legnagyobb_stadion("stadium.csv")
