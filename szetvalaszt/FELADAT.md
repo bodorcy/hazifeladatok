@@ -1,9 +1,11 @@
-#Szótagolás
-##Feladat
+# Szótagolás
+
+## Feladat
+
 Készítsd el az elvalasztas függvényt, amely paraméterben egy magyar szót vár. A függvény
 feladata, hogy visszaadja
 a szót (kötőjelekkel) szótagolva.
-##Példák
+## Példák
 >input: asztal
 >output: asz-tal
 
