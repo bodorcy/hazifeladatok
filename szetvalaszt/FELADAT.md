@@ -6,11 +6,13 @@ Készítsd el az elvalasztas függvényt, amely paraméterben egy magyar szót v
 feladata, hogy visszaadja
 a szót (kötőjelekkel) szótagolva.
 ## Példák
->input: asztal
->output: asz-tal
+```
+input: asztal
+output: asz-tal
 
->input: katona
->output: ka-to-na
+input: katona
+output: ka-to-na
 
->input: rendőr
->output: rend-őr
+input: rendőr
+output: rend-őr
+```
