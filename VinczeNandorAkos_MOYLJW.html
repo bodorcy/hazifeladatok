@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="hu">
+
+<head>
+    <meta charset=utf-8>
+    <title>4. beadandó</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { width: 100%; height: 100% }
+
+        body { margin: 0; overflow: hidden; }
+        canvas { width: 100%; height: 100% }
+        #info {
+            position: absolute;
+            top: 30px;
+            left: 10px;
+            width: 100%;
+            text-align: left;
+            z-index: 100;
+            display:block;
+            color: honeydew;
+            font-size: 10px;
+            opacity: 0.7;
+        }
+        #info a { color: #f00; font-weight: bold; text-decoration: underline; cursor: pointer }
+    </style>
+</head>
+
+<body>
+
+<div id="info">
+    <p id="infopanel"></p>
+</div>
+
+
+<script async src="./dist/es-module-shims.js"></script>
+<script type="importmap">
+{
+    "imports": {
+        "three": "./js-r178/build/three.module.js",
+        "trackballcontrols": "./js-r178/examples/jsm/controls/TrackballControls.js"
+    }
+}
+</script>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { TrackballControls } from 'trackballcontrols';
+
+    // Globális változók
+    let WIDTH, HEIGHT, aspectRatio;
+    let renderer;
+    let scene, camera;
+    let controls;
+    let wire_frame = false;  // wireframe vagy kitöltött módban való megjelenítés
+    let shadow = true;  // hogy ne robbanjon szét a gép
+
+    let plane_size = 800;
+    let sky_rad = plane_size / 2;
+    let infoPanel;
+
+    let starHolder;
+    let fireFlyHolder;
+
+    init();
+
+    function setInfoPanelText( msg ) {
+        infoPanel.innerHTML = msg;
+    }
+
+    function appendInfoPanelText( msg ) {
+        let str = infoPanel.innerHTML;
+        str = str + '<br/>' + msg;
+        infoPanel.innerHTML = str;
+    }
+
+
+    function init() {
+
+        // Böngésző ablakméret lekérése és méretarány számítása
+        HEIGHT = window.innerHeight;
+        WIDTH = window.innerWidth;
+        aspectRatio = WIDTH / HEIGHT;
+
+        // Renderer létrehozása és DOM-hoz adása
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setSize( WIDTH, HEIGHT );
+        renderer.setClearColor( 0x000000 );
+        renderer.shadowMap.enabled = shadow;
+        document.body.appendChild( renderer.domElement );
+
+        // Színtér létrehozása
+        scene = new THREE.Scene();
+
+        // Kamera létrehozása és vetítési paramétereinek beállítása
+        camera = new THREE.PerspectiveCamera( 80, aspectRatio, 0.1, 1000 );
+        camera.position.set( -sky_rad/3, 50, -sky_rad/3);
+        camera.lookAt( scene.position.x, scene.position.y + 50, scene.position.z );
+
+        ////////////////// 4. bead: LoadingManager //////////////////
+        infoPanel = document.getElementById( 'infopanel' );
+
+        setInfoPanelText( 'Loading resources!' );
+
+        let manager = new THREE.LoadingManager();
+        manager.onProgress = function ( item, loaded, total ) {
+            console.log( 'Manager onProgress: loading of', item, 'finished; ', loaded, ' of ', total, ' objects loaded.' );
+            let progressString = 'Loading of ' + item + ' finished;<br/>' + loaded + ' of ' + total + ' objects loaded.';
+            appendInfoPanelText( progressString );
+        };
+        manager.onLoad = function () {
+            console.log( 'Manager onLoad called, render started.' );
+            appendInfoPanelText( 'Manager onLoad called, rendering started.' );
+            animate();
+        };
+        let textureLoader = new THREE.TextureLoader( manager );
+
+        ////////////////// Objektumok létrehozása //////////////////
+        starHolder = new THREE.Object3D();
+        fireFlyHolder = new THREE.Object3D();
+
+        // Talaj
+        let plane_rot = THREE.MathUtils.degToRad(90);
+        let planeGeometry = new THREE.PlaneGeometry( plane_size, plane_size, 2, 3 );
+        let planeMaterial = new THREE.MeshLambertMaterial( { color: 0x382e06, wireframe: wire_frame, side: THREE.doubleSided } );
+        let planeMesh = new THREE.Mesh( planeGeometry, planeMaterial );
+
+        planeMesh.rotation.set(-plane_rot, 0, 0);
+        planeMesh.scale.set(1,1,1);  // beadandó követelmény
+        planeMesh.receiveShadow = true;
+        scene.add( planeMesh );
+
+        // Ég
+        let skyGeometry = new THREE.SphereGeometry(1, 60, 40);
+        let skyMaterial = new THREE.MeshLambertMaterial({color: 0x050399, side: THREE.BackSide, wireframe: wire_frame});
+        let skyMesh = new THREE.Mesh( skyGeometry, skyMaterial );
+        skyMesh.scale.set(sky_rad, sky_rad, sky_rad);
+        skyMesh.position.set(0, 2, 0)  // beadandó követelmény
+
+        scene.add(skyMesh)
+
+        let foilageTextures = [];
+
+        for(let i = 1; i <= 3; i++){
+            foilageTextures.push(textureLoader.load('assets/texture/foilage'+i+'.jpg'))
+        }
+        // Faültetés
+        for (let i = 0; i < 450; i++){
+            let x = plane_size*Math.random()-sky_rad;
+            let z = plane_size*Math.random()-sky_rad;
+
+            if(!clipsIntoHouse(x,z, 0, 0) && !clipsIntoHouse(x,z, 10, 70))  // csúnya house clip check
+                makeOak(x, 0, z, scene, random_choice(foilageTextures));
+        }
+
+        //makeMagicTree(100, 0, 0, scene);
+
+        let faceTextures = [];
+
+        for (let i = 1; i <= 4; i++){
+            faceTextures.push(textureLoader.load('assets/texture/face'+i+'.jpg'))
+        }
+        // Törpeültetés
+        for (let i = 0; i < 50; i++){
+            let x = sky_rad*Math.random()-plane_size/4;
+            let z = sky_rad*Math.random()-plane_size/4;
+
+            if(!clipsIntoHouse(x,z, 0, 0) && !clipsIntoHouse(x,z, 10, 70))  // csúnya house clip check
+                makeSmurf(x, 0, z, scene, random_choice(faceTextures));
+        }
+
+        //
+        let doorTexture = textureLoader.load('assets/texture/door.jpg');
+        let windowTexture = textureLoader.load('assets/texture/window.jpg');
+        makeHouse(0,5,0,scene,doorTexture,windowTexture);
+        makeHouse(10,5,70,scene,doorTexture,windowTexture);
+
+        // Hold
+        let moon_x = sky_rad/2;
+        let moon_z = sky_rad/2;
+        let moon_y = skyY(moon_x, moon_z, sky_rad);
+
+        let moonTexture = textureLoader.load('assets/texture/moonmap1k.jpg');
+
+        let moonGeometry = new THREE.SphereGeometry(25,32,32);
+        let moonMaterial = new THREE.MeshBasicMaterial({color: 0xAAAAAA});
+        moonMaterial.map = moonTexture;
+        let moon = new THREE.Mesh(moonGeometry, moonMaterial);
+        moon.position.set(moon_x, moon_y, moon_z)
+
+        starHolder.add(moon);
+
+        // beadandó ambiens fény
+        let moonLight = new THREE.AmbientLight(0x8303ba, 1); // 0.4 ízlésesnek tűnik
+        moonLight.position.set(moon_x, moon_y, moon_z);
+        scene.add(moonLight);
+
+        // beadandó irányfény
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        dirLight.position.set(moon_x, moon_y, moon_z);
+        dirLight.castShadow = true;
+        //scene.add(new THREE.DirectionalLightHelper( dirLight, 1 ));
+
+        dirLight.shadow.mapSize.width = 512;
+        dirLight.shadow.mapSize.height = 512;
+
+        // ezeket nem én találtam ki, de nélkülük úgy tűnik nem működik az árnyék
+        // (talán túl messze van / túl nagy a terület)
+
+        dirLight.shadow.camera.near = 100;
+        dirLight.shadow.camera.far = 1000;
+        dirLight.shadow.camera.left = -500;
+        dirLight.shadow.camera.right = 500;
+        dirLight.shadow.camera.top = 500;
+        dirLight.shadow.camera.bottom = -500;
+
+        scene.add(dirLight);
+
+        // csillagozás
+
+        for(let i = 0; i < 300; i++){
+            let x = 2*sky_rad*Math.random()-sky_rad;
+            let z = 2*sky_rad*Math.random()-sky_rad;
+            let y = skyY(x,z, sky_rad);
+
+            makeStar(x,y,z,scene)
+        }
+
+        // bogarak
+        for(let i = 0; i < 100; i++){
+            let x = 2*sky_rad*Math.random()-sky_rad;
+            let z = 2*sky_rad*Math.random()-sky_rad;
+            let y = 0.5 + 5*Math.random()
+
+            makeFireFly(x,y,z,scene)
+        }
+
+        //////////////////// Holderek hozzáadaása ////////////////////
+
+        scene.add(starHolder);
+        scene.add(fireFlyHolder);
+
+
+        // Az ablak későbbi átméretezése esetén visszahívható függvény megadása
+        window.addEventListener( 'resize', handleWindowResize, wire_frame );
+
+        // Kamera vezérlés
+        controls = new TrackballControls( camera, renderer.domElement );
+        controls.rotateSpeed = 5.0;
+        controls.panSpeed = 1.0;
+    }
+
+    function clipsIntoHouse(x,z, h_x, h_z){
+        // ne ütközzenek az objektumok a házzal
+        return Math.abs(x - h_x) < 18 || Math.abs(z - h_z) < 18;
+    }
+
+    function makeFireFly(x, y, z, scene){
+        let geometry = new THREE.SphereGeometry(0.3,8,8);
+        let material = new THREE.MeshStandardMaterial({color: 0x47ff05, emissive:0x47ff05})
+        let ff = new THREE.Mesh(geometry, material);
+        ff.position.set(x,y,z);
+
+        // beadandó pontfény
+        let light = new THREE.PointLight(0x47ff05, 20, 10);
+        light.position.set(x,y,z);
+        //scene.add(new THREE.PointLightHelper( light, 15 ))
+
+        //scene.add(light);
+        //scene.add(ff)
+
+        fireFlyHolder.add(ff);
+        fireFlyHolder.add(light);
+    }
+
+    function makeStar(x, y, z, scene){
+        let geometry = new THREE.SphereGeometry(0.5,8,8);
+        let material = new THREE.MeshBasicMaterial({color: 0xffffff})
+        let star = new THREE.Mesh(geometry, material);
+        star.position.set(x,y,z);
+        starHolder.add(star);
+        //stars.push(star);
+        //scene.add(star)
+    }
+
+    function makeOak(x, y, z, scene, foilageTexture){
+            // hengerből és gömbökből álló fa építése
+            let tree = new THREE.Group();
+            let height_factor = 8+ Math.floor(8*Math.random());
+            let radius = 10;
+            let lomb_cnt = 5;
+
+            let points = [];
+
+            // ezek köré lehet majd csöver húzni
+            for (let i = 0; i < height_factor; i++)
+                points.push(new THREE.Vector3((0.5*Math.random() - 0.25), i*2, 0))
+
+
+            let path = new THREE.CatmullRomCurve3(points);
+
+            let geometry = new THREE.TubeGeometry(path, 20, 2, 8, false);
+            let material = new THREE.MeshLambertMaterial( { color: 0x873e23, wireframe: wire_frame } );
+            let trunk = new THREE.Mesh(geometry, material);
+
+            trunk.position.set(0, 0, 0);
+            trunk.rotation.set(0, Math.PI, 0); // beadandó követelmény
+
+            trunk.castShadow = true;
+            trunk.receiveShadow = true;
+
+            tree.add(trunk);
+
+            let colors = [0x138c2f, 0x21ba45, 0x0d561e]
+
+            for (let i = 0; i < lomb_cnt; i++) {
+                let lombMaterial = new THREE.MeshLambertMaterial({ color: random_choice(colors), wireframe: wire_frame });
+                lombMaterial.map = foilageTexture;
+
+                let lomb = new THREE.Mesh(
+                    new THREE.SphereGeometry(radius, 10, 10),
+                    lombMaterial);
+
+                lomb.position.set(10*Math.random()-5, height_factor*2 +10*Math.random()-5, 10*Math.random()-5);
+                let random_scale = 0.5 + Math.random()/2
+                lomb.scale.set(random_scale,random_scale,random_scale);
+                lomb.castShadow = true;
+                lomb.receiveShadow = true;
+                tree.add(lomb);
+            }
+            tree.position.set(x, y, z);
+
+            scene.add(tree);
+    }
+
+    function makeMagicTree(x, y, z, scene){
+        // ez a sima makeOak, csak nagyobb és színesebb
+
+        let tree = new THREE.Group();
+        let height_factor = 50;
+        let radius = 40;
+        let lomb_cnt = 20;
+
+        let points = [];
+
+        for (let i = 0; i < height_factor; i++)
+            points.push(new THREE.Vector3( 2*Math.random()-1, i*2, 2*Math.random()-1))
+
+        let path = new THREE.CatmullRomCurve3(points);
+
+        let geometry = new THREE.TubeGeometry(path, 20, 10, 8, false);
+        let material = new THREE.MeshLambertMaterial( { color: 0x873e23, wireframe: wire_frame } );
+        let trunk = new THREE.Mesh(geometry, material);
+
+        trunk.position.set(0, 0, 0);
+        trunk.rotation.set(0, Math.PI, 0); // beadandó követelmény
+
+        trunk.castShadow = true;
+        trunk.receiveShadow = true;
+
+        tree.add(trunk);
+
+        let colors = [0x825D24, 0x24822D, 0x244A82, 0x822479]
+
+        for (let i = 0; i < lomb_cnt; i++) {
+            let clr = random_choice(colors);
+
+            let lomb = new THREE.Mesh(
+                new THREE.SphereGeometry(radius, 10, 10),
+                new THREE.MeshStandardMaterial({
+                    color: clr,
+                    emissive: clr,
+                    emissiveIntensity: 0.2,
+                    roughness: 0.3,
+                    wireframe: wire_frame
+                    }));
+
+            let random_factor = 100;
+            lomb.position.set(
+                random_factor*Math.random()-random_factor/2,
+                height_factor*2 + random_factor/2*Math.random()-random_factor/4,
+                random_factor*Math.random()-random_factor/2);
+
+            let random_scale = 0.5 + Math.random()/2;
+
+            lomb.scale.set(random_scale,random_scale,random_scale);
+            lomb.castShadow = true;
+            lomb.receiveShadow = true;
+
+            tree.add(lomb);
+        }
+
+        for (let i = 0; i < 10; i++) {
+            makeFireFly(
+                x + (Math.random() - 0.5) * 300,
+                y + 80 + Math.random() * 30,
+                z + (Math.random() - 0.5) * 300,
+                scene
+            );
+        }
+        tree.position.set(x, y, z);
+        scene.add(tree);
+    }
+
+    function makeSmurf(x, y, z, scene, faceTexture){
+        let smurf = new THREE.Group();
+
+        //Sapka
+        let geometryHat = new THREE.ConeGeometry( 1, 2, 16 );
+        let materialHat = new THREE.MeshPhongMaterial( {
+            color: 0xf33838,
+            shininess: 50,
+            specular: 0xFFFFFF,
+            wireframe: wire_frame} );
+        let hat = new THREE.Mesh(geometryHat, materialHat );
+        hat.position.set(0,3.3,0);
+        hat.rotation.set(0, Math.PI, 0); // beadandó követelmény
+        smurf.add(hat);
+
+        //Fej
+        let geometryHead = new THREE.SphereGeometry(1)
+        let materialHead = new THREE.MeshLambertMaterial( {color: 0xf7c05c, wireframe: wire_frame} );
+        let head = new THREE.Mesh(geometryHead, materialHead);
+        materialHead.map = faceTexture;
+        head.position.set(0,1.7,0);
+        smurf.add(head);
+
+        //Szakáll
+        /*
+        let beardGeometry = new THREE.CircleGeometry( 1, 6, 0, Math.PI/4 ); // pi/4 --> 45/2 --> 22.5 fokon áll a tengelye
+        let beardMaterial = new THREE.MeshLambertMaterial( { color: 0xffffff, wireframe: wire_frame } );
+        let beard = new THREE.Mesh( beardGeometry, beardMaterial );
+        beard.position.set(0,0.5,0.9)
+        // forgatás de csak a beadandó miatt, okosabban is lehetne
+        beard.rotation.set(0,0,THREE.MathUtils.degToRad(45 + 22.5))
+        smurf.add(beard)
+        */
+
+        //Test
+        let colors = [0xD9004C, 0xD92200, 0xD98D00, 0x00D98D, 0x004CD9];
+        let geometryBody = new THREE.CylinderGeometry(0.8, 1, 2, 16);
+        let materialBody = new THREE.MeshLambertMaterial( {color: random_choice(colors), wireframe: wire_frame } );
+        let body = new THREE.Mesh(geometryBody, materialBody);
+        body.position.set(0,0,0);
+        hat.rotation.set(0, Math.PI, 0); // beadandó követelmény
+        smurf.add(body);
+
+        let scale = 2;
+
+        smurf.scale.set(scale, scale, scale);
+        smurf.position.set(x,y+scale,z);
+        smurf.rotation.set(0,2*Math.PI*Math.random(),0)
+
+        hat.castShadow = true;
+        head.castShadow = true;
+        body.castShadow = true;
+
+        scene.add(smurf);
+    }
+
+    function makeHouse(x, y, z, scene, doorTexture, windowTexture){
+        let house = new THREE.Group();
+
+        // Test
+        let geometryRect = new THREE.BoxGeometry(5, 3, 5);
+        let materialRect = new THREE.MeshLambertMaterial({color:0x9C530B, wireframe: wire_frame});
+        let rect = new THREE.Mesh(geometryRect, materialRect);
+        rect.position.set(0, 0, 0);
+        rect.rotation.set(0, 2*Math.PI, 0);  // beadandó követelmény
+        house.add(rect);
+
+        // Tető
+        let geometryRoof = new THREE.ConeGeometry(3, 4, 4)
+        //let geometryRoof = new THREE.CylinderGeometry(3.5, 3.5, 7, 3);
+        let materialRoof = new THREE.MeshPhongMaterial({
+            color:0xC4230E,
+            shininess: 40,
+            specular: 0xFFFFFF,
+            wireframe: wire_frame});
+        let roof = new THREE.Mesh(geometryRoof, materialRoof);
+
+        // Fáradságos forgatás
+        //roof.rotation.set(THREE.MathUtils.degToRad(90),THREE.MathUtils.degToRad(180),THREE.MathUtils.degToRad(180));
+        //let scale = 0.75;
+        roof.rotation.set(0, THREE.MathUtils.degToRad(45), 0)
+        roof.position.set(0, 3.5, 0);
+        roof.scale.set(1.5, 1, 1.5);
+
+        house.add(roof);
+
+        // ablak
+        let windowPos = [
+            new THREE.Vector3(-2.51, 0.5, -1.5),
+            new THREE.Vector3(2.51, 0.5, -1.5),
+            new THREE.Vector3(-2.51, 0.5, 1.5),
+            new THREE.Vector3(2.51, 0.5, 1.5)]
+
+        let windowMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFAA, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+        windowMaterial.map = windowTexture;
+        let windowGeometry = new THREE.CircleGeometry(0.5, 30);
+
+        for(let i = 0; i < windowPos.length; i++){
+            let window = new THREE.Mesh(windowGeometry, windowMaterial);
+            window.position.copy(windowPos[i]);
+            window.rotation.set(0,THREE.MathUtils.degToRad(90),0)
+            house.add(window);
+
+            let sLight = new THREE.SpotLight( 0xFFFFAA, 13, 50, 0.8);
+            sLight.position.copy(windowPos[i]);
+            sLight.decay = 0.1;
+            sLight.penumbra = 0.4;
+            sLight.castShadow = true;
+
+            // hogy scalelődjön ez is a house-szal
+            let target = new THREE.Object3D();
+            target.position.set(windowPos[i].x * 2, windowPos[i].y, windowPos[i].z);
+            sLight.target = target;
+
+            house.add(sLight);
+            house.add(target);
+
+            //if (i === 0)
+            //    house.add(new THREE.SpotLightHelper( sLight ))
+        }
+
+        // ajtó
+        let doorMaterial = new THREE.MeshLambertMaterial({ color: 0xFFAA33, side: THREE.DoubleSide });
+        doorMaterial.map = doorTexture;
+        let doorGeometry = new THREE.PlaneGeometry(1.2, 2);
+        let door = new THREE.Mesh(doorGeometry, doorMaterial);
+        door.position.set(0, -0.5, -2.51);
+        house.add(door);
+
+        let size = 6;
+        house.position.set(x,y,z);
+        house.scale.set(size, size, size);  // nagyítás
+        rect.castShadow = true;
+        roof.castShadow = true;
+        scene.add(house);
+    }
+
+    function random_choice(list){
+        return list[Math.floor(list.length * Math.random())];
+    }
+
+    function skyY(x,z,sky_radius){
+        // z koordináta x,y alapján ami az égen lesz
+        // x^2 + y^2 + z^2 == sky_radius^2
+        // y = sqrt(sky_radius^2 - x^2 - z^2)
+
+        return Math.sqrt(sky_radius*sky_radius - x*x - z*z)
+    }
+
+    ////////////////// ObjectTesterSkeleton.html-ből származó részek //////////////////
+    function handleWindowResize() {
+        // Az ablak átméretezése esetén a kamera vetítési paraméterek újraszámolása
+        HEIGHT = window.innerHeight;
+        WIDTH = window.innerWidth;
+        console.log( 'WIDTH=' + WIDTH + '; HEIGHT=' + HEIGHT );
+        renderer.setSize( WIDTH, HEIGHT );
+        aspectRatio = WIDTH / HEIGHT;
+        camera.aspect = aspectRatio;
+        camera.updateProjectionMatrix();
+
+        render();
+    }
+
+    function animate() {
+        // Újabb képkocka rajzolásának kérése.
+        // Maximálisan 60 FPS-t biztosít a rendszer.
+        requestAnimationFrame( animate );
+        // Kameramozgás vezérlése
+        controls.update();
+        starHolder.rotation.y += 0.0006;
+        starHolder.rotation.x += 0.0006;
+        starHolder.rotation.z += 0.0006;
+
+        fireFlyHolder.rotation.y -= 0.001;
+        //fireFlyHolder.position.y = 2*Math.random() + fireFlyHolder.position.x;
+
+        // Új képkocka rajzolása
+        render();
+    }
+
+    function render() {
+        // 3D -> 2D vetített kép kiszámítása.
+        // scene 3D színtér képe a camera kamera szemszögéből.
+        renderer.render( scene, camera );
+    }
+
+</script>
+</body>
+</html>
