@@ -3,7 +3,7 @@
 
 <head>
     <meta charset=utf-8>
-    <title>4. beadandó</title>
+    <title>NAGY beadandó</title>
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { width: 100%; height: 100% }
@@ -14,12 +14,12 @@
             position: absolute;
             top: 30px;
             left: 10px;
-            width: 100%;
+            width: 200px;
             text-align: left;
             z-index: 100;
             display:block;
-            color: honeydew;
-            font-size: 10px;
+            color: black;
+            font-size: 7px;
             opacity: 0.7;
         }
         #info a { color: #f00; font-weight: bold; text-decoration: underline; cursor: pointer }
@@ -38,14 +38,49 @@
 {
     "imports": {
         "three": "./js-r178/build/three.module.js",
-        "trackballcontrols": "./js-r178/examples/jsm/controls/TrackballControls.js"
+        "trackballcontrols": "./js-r178/examples/jsm/controls/TrackballControls.js",
+        "OBJLoader": "./js-r178/examples/jsm/loaders/OBJLoader.js",
+        "MTLLoader": "./js-r178/examples/jsm/loaders/MTLLoader.js"
     }
 }
 </script>
 
 <script type="module">
     import * as THREE from 'three';
+    import { OBJLoader } from 'OBJLoader';
+    import { MTLLoader } from 'MTLLoader';
     import { TrackballControls } from 'trackballcontrols';
+
+    let loadedModels = {};
+
+    function loader_obj_mtl(OBJFile, MTLFile, name, manager) {
+        manager.itemStart(OBJFile);
+
+        new MTLLoader()
+            .load(MTLFile, function (materials) {
+                materials.preload();
+                new OBJLoader()
+                    .setMaterials(materials)
+                    .load(OBJFile, function (object) {
+
+                        object.traverse(function (child) {
+                            if (child instanceof THREE.Mesh) {
+                                child.scale.set(3, 3, 3);
+                                child.castShadow = true;
+                                child.receiveShadow = true;
+                                child.material = new THREE.MeshPhongMaterial( {
+                                    color: child.material.color,
+                                    shininess: 10,
+                                    specular: 0x000000,
+                                    wireframe: wire_frame} );
+                            }
+                        });
+
+                        loadedModels[name] = object;
+                        manager.itemEnd(OBJFile);
+                    });
+            });
+    }
 
     // Globális változók
     let WIDTH, HEIGHT, aspectRatio;
@@ -61,9 +96,27 @@
 
     let starHolder;
     let fireFlyHolder;
+    let lombHolder;
 
-    init();
+    let smurfArray = [];
+    let smurfHolder;
+    let smurfFlipping = false;
+    let smurfToFlip;
 
+    // vezerles
+
+    let ff_time = 0;
+    let smurf_time = 0;
+    let windowLightsOn = true;
+    let windowLights = [];
+
+    let fireFlyLightsOn = true;
+    let fireFlyLights = [];
+
+    let day = true;
+    let ambientLight;
+    let moonDirLight;
+    let sunDirLight;
     function setInfoPanelText( msg ) {
         infoPanel.innerHTML = msg;
     }
@@ -74,7 +127,38 @@
         infoPanel.innerHTML = str;
     }
 
+    let tree_names = ['tree', 'tree2', 'tree3'];
+    let rock_names = ['rock1', 'rock2', 'rock3', 'rock4', 'rock5'];
+    let trunk_names = ['trunk', 'trunk2']
 
+    function populateScene() {
+        for (let i = 0; i < 200; i++){
+            let x = plane_size*Math.random()-sky_rad;
+            let z = plane_size*Math.random()-sky_rad;
+
+            if(!clipsIntoHouse(x,z, 0, 0) && !clipsIntoHouse(x,z, 10, 70)) {
+                makeCustomTree(x, 0, z, scene, random_choice(tree_names));
+            }
+        }
+        for (let i = 0; i < 200; i++){
+            let x = plane_size*Math.random()-sky_rad;
+            let z = plane_size*Math.random()-sky_rad;
+
+            if(!clipsIntoHouse(x,z, 0, 0) && !clipsIntoHouse(x,z, 10, 70)) {
+                makeCustomRock(x, 0, z, scene, random_choice(rock_names));
+            }
+        }
+        for (let i = 0; i < 50; i++){
+            let x = plane_size*Math.random()-sky_rad;
+            let z = plane_size*Math.random()-sky_rad;
+
+            if(!clipsIntoHouse(x,z, 0, 0) && !clipsIntoHouse(x,z, 10, 70)) {
+                makeCustomTrunk(x, 0, z, scene, random_choice(trunk_names));
+            }
+        }
+    }
+
+    init();
     function init() {
 
         // Böngésző ablakméret lekérése és méretarány számítása
@@ -100,39 +184,79 @@
         ////////////////// 4. bead: LoadingManager //////////////////
         infoPanel = document.getElementById( 'infopanel' );
 
-        setInfoPanelText( 'Loading resources!' );
+        setInfoPanelText( 'Erőforrások betöltése!' );
 
         let manager = new THREE.LoadingManager();
         manager.onProgress = function ( item, loaded, total ) {
-            console.log( 'Manager onProgress: loading of', item, 'finished; ', loaded, ' of ', total, ' objects loaded.' );
-            let progressString = 'Loading of ' + item + ' finished;<br/>' + loaded + ' of ' + total + ' objects loaded.';
+            console.log( 'Manager onProgress:', item, 'kész; ', loaded, ' a ', total, '-bol betöltve.' );
+            let progressString = item + ' kész;<br/>' + loaded + ' a ' + total + '-bol betöltve';
             appendInfoPanelText( progressString );
         };
         manager.onLoad = function () {
-            console.log( 'Manager onLoad called, render started.' );
-            appendInfoPanelText( 'Manager onLoad called, rendering started.' );
+            console.log( 'onLoad meghívva, renderelés megkezdése.' );
+            appendInfoPanelText( 'onLoad meghívva, renderelés megkezdése' );
+            populateScene();
             animate();
         };
+
+        for(let i = 0; tree_names.length > i; ++i){
+            loader_obj_mtl('assets/my_models/'+tree_names[i]+'.obj', 'assets/my_models/'+tree_names[i]+'.mtl', tree_names[i], manager);
+        }
+
+        for(let i = 0; rock_names.length > i; ++i){
+            loader_obj_mtl('assets/my_models/'+rock_names[i]+'.obj', 'assets/my_models/'+rock_names[i]+'.mtl', rock_names[i], manager);
+        }
+
+        for(let i = 0; trunk_names.length > i; ++i){
+            loader_obj_mtl('assets/my_models/'+trunk_names[i]+'.obj', 'assets/my_models/'+trunk_names[i]+'.mtl', trunk_names[i], manager);
+        }
+
         let textureLoader = new THREE.TextureLoader( manager );
 
+        ////////////////// event listener //////////////////
+        window.addEventListener('keydown', keyDown);
+
+        function keyDown(event){
+            switch (event.keyCode){
+                case '1'.charCodeAt(0):
+                    windowLightsOn = !windowLightsOn;
+                    toggleWindowLights();
+                    break;
+
+                case '2'.charCodeAt(0):
+                    fireFlyLightsOn = !fireFlyLightsOn;
+                    toggleFireFlyLights();
+                    break;
+
+                case 'L'.charCodeAt(0):
+                    day = !day;
+                    toggleDayNightLight();
+                    break;
+            }
+        }
+
         ////////////////// Objektumok létrehozása //////////////////
+
         starHolder = new THREE.Object3D();
         fireFlyHolder = new THREE.Object3D();
+        smurfHolder = new THREE.Object3D();
+        lombHolder = new THREE.Object3D();
 
         // Talaj
         let plane_rot = THREE.MathUtils.degToRad(90);
         let planeGeometry = new THREE.PlaneGeometry( plane_size, plane_size, 2, 3 );
-        let planeMaterial = new THREE.MeshLambertMaterial( { color: 0x382e06, wireframe: wire_frame, side: THREE.doubleSided } );
+        let planeMaterial = new THREE.MeshLambertMaterial( { color: 0x194d00, wireframe: wire_frame, side: THREE.doubleSided } );
         let planeMesh = new THREE.Mesh( planeGeometry, planeMaterial );
 
         planeMesh.rotation.set(-plane_rot, 0, 0);
         planeMesh.scale.set(1,1,1);  // beadandó követelmény
         planeMesh.receiveShadow = true;
+        planeMesh.castShadow = true;
         scene.add( planeMesh );
 
         // Ég
         let skyGeometry = new THREE.SphereGeometry(1, 60, 40);
-        let skyMaterial = new THREE.MeshLambertMaterial({color: 0x050399, side: THREE.BackSide, wireframe: wire_frame});
+        let skyMaterial = new THREE.MeshStandardMaterial({color: 0x050399, side: THREE.BackSide, wireframe: wire_frame});
         let skyMesh = new THREE.Mesh( skyGeometry, skyMaterial );
         skyMesh.scale.set(sky_rad, sky_rad, sky_rad);
         skyMesh.position.set(0, 2, 0)  // beadandó követelmény
@@ -142,15 +266,7 @@
         let foilageTextures = [];
 
         for(let i = 1; i <= 3; i++){
-            foilageTextures.push(textureLoader.load('assets/texture/foilage'+i+'.jpg'))
-        }
-        // Faültetés
-        for (let i = 0; i < 450; i++){
-            let x = plane_size*Math.random()-sky_rad;
-            let z = plane_size*Math.random()-sky_rad;
-
-            if(!clipsIntoHouse(x,z, 0, 0) && !clipsIntoHouse(x,z, 10, 70))  // csúnya house clip check
-                makeOak(x, 0, z, scene, random_choice(foilageTextures));
+            foilageTextures.push(textureLoader.load('texture/foilage'+i+'.jpg'))
         }
 
         //makeMagicTree(100, 0, 0, scene);
@@ -158,7 +274,7 @@
         let faceTextures = [];
 
         for (let i = 1; i <= 4; i++){
-            faceTextures.push(textureLoader.load('assets/texture/face'+i+'.jpg'))
+            faceTextures.push(textureLoader.load('texture/face'+i+'.jpg'))
         }
         // Törpeültetés
         for (let i = 0; i < 50; i++){
@@ -170,51 +286,80 @@
         }
 
         //
-        let doorTexture = textureLoader.load('assets/texture/door.jpg');
-        let windowTexture = textureLoader.load('assets/texture/window.jpg');
-        makeHouse(0,5,0,scene,doorTexture,windowTexture);
-        makeHouse(10,5,70,scene,doorTexture,windowTexture);
+        let doorTexture = textureLoader.load('texture/door.jpg');
+        let windowTexture = textureLoader.load('texture/window.jpg');
+        let roofTexture = textureLoader.load('texture/roof.jpg');
+        makeHouse(0,5,0,scene,doorTexture,windowTexture,roofTexture);
+        makeHouse(10,5,70,scene,doorTexture,windowTexture,roofTexture);
 
         // Hold
         let moon_x = sky_rad/2;
         let moon_z = sky_rad/2;
         let moon_y = skyY(moon_x, moon_z, sky_rad);
 
-        let moonTexture = textureLoader.load('assets/texture/moonmap1k.jpg');
+        let moonTexture = textureLoader.load('texture/moonmap1k.jpg');
 
         let moonGeometry = new THREE.SphereGeometry(25,32,32);
-        let moonMaterial = new THREE.MeshBasicMaterial({color: 0xAAAAAA});
+        let moonMaterial = new THREE.MeshBasicMaterial({color: 0xffffffff});
         moonMaterial.map = moonTexture;
         let moon = new THREE.Mesh(moonGeometry, moonMaterial);
         moon.position.set(moon_x, moon_y, moon_z)
 
         starHolder.add(moon);
 
+        // Nap
+
+        let sunGeometry = new THREE.SphereGeometry(25,32,32);
+        let sunMaterial = new THREE.MeshBasicMaterial({color: 0xf2f20f});
+        let sun = new THREE.Mesh(sunGeometry, sunMaterial);
+        sun.position.set(-moon_x, -moon_y, -moon_z);
+
+        starHolder.add(sun);
+
+
         // beadandó ambiens fény
-        let moonLight = new THREE.AmbientLight(0x8303ba, 1); // 0.4 ízlésesnek tűnik
-        moonLight.position.set(moon_x, moon_y, moon_z);
-        scene.add(moonLight);
+        ambientLight = new THREE.AmbientLight(0xffffff, 1); // 0.4 ízlésesnek tűnik
+        ambientLight.position.set(moon_x, moon_y, moon_z);
+        scene.add(ambientLight);
 
         // beadandó irányfény
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-        dirLight.position.set(moon_x, moon_y, moon_z);
-        dirLight.castShadow = true;
-        //scene.add(new THREE.DirectionalLightHelper( dirLight, 1 ));
+        moonDirLight = new THREE.DirectionalLight(0xffffff, 1);
+        moonDirLight.position.set(moon_x, moon_y, moon_z);
+        moonDirLight.castShadow = true;
+        //scene.add(new THREE.DirectionalLightHelper( moonDirLight, 1 ));
 
-        dirLight.shadow.mapSize.width = 512;
-        dirLight.shadow.mapSize.height = 512;
+        moonDirLight.shadow.mapSize.width = 512;
+        moonDirLight.shadow.mapSize.height = 512;
 
         // ezeket nem én találtam ki, de nélkülük úgy tűnik nem működik az árnyék
         // (talán túl messze van / túl nagy a terület)
 
-        dirLight.shadow.camera.near = 100;
-        dirLight.shadow.camera.far = 1000;
-        dirLight.shadow.camera.left = -500;
-        dirLight.shadow.camera.right = 500;
-        dirLight.shadow.camera.top = 500;
-        dirLight.shadow.camera.bottom = -500;
+        moonDirLight.shadow.camera.near = 100;
+        moonDirLight.shadow.camera.far = 1000;
+        moonDirLight.shadow.camera.left = -500;
+        moonDirLight.shadow.camera.right = 500;
+        moonDirLight.shadow.camera.top = 500;
+        moonDirLight.shadow.camera.bottom = -500;
 
-        scene.add(dirLight);
+        sunDirLight = new THREE.DirectionalLight(0xffffff, 3);
+        sunDirLight.position.set(-moon_x, -moon_y, -moon_z);
+        sunDirLight.castShadow = true;
+        //scene.add(new THREE.DirectionalLightHelper( sunDirLight, 1 ));
+
+        sunDirLight.shadow.mapSize.width = 512;
+        sunDirLight.shadow.mapSize.height = 512;
+
+        // ezeket nem én találtam ki, de nélkülük úgy tűnik nem működik az árnyék
+        // (talán túl messze van / túl nagy a terület)
+
+        sunDirLight.shadow.camera.near = 300;
+        sunDirLight.shadow.camera.far = 1000;
+        sunDirLight.shadow.camera.left = -500;
+        sunDirLight.shadow.camera.right = 500;
+        sunDirLight.shadow.camera.top = 500;
+        sunDirLight.shadow.camera.bottom = -500;
+
+        starHolder.add(sunDirLight)
 
         // csillagozás
 
@@ -239,6 +384,8 @@
 
         scene.add(starHolder);
         scene.add(fireFlyHolder);
+        scene.add(smurfHolder);
+        scene.add(lombHolder);
 
 
         // Az ablak későbbi átméretezése esetén visszahívható függvény megadása
@@ -252,25 +399,33 @@
 
     function clipsIntoHouse(x,z, h_x, h_z){
         // ne ütközzenek az objektumok a házzal
-        return Math.abs(x - h_x) < 18 || Math.abs(z - h_z) < 18;
+        return Math.abs(x - h_x) < 10 || Math.abs(z - h_z) < 10;
     }
 
     function makeFireFly(x, y, z, scene){
-        let geometry = new THREE.SphereGeometry(0.3,8,8);
+        let fireflyGroup = new THREE.Group();
+
+        let geometry = new THREE.SphereGeometry(0.3, 8, 8);
         let material = new THREE.MeshStandardMaterial({color: 0x47ff05, emissive:0x47ff05})
         let ff = new THREE.Mesh(geometry, material);
-        ff.position.set(x,y,z);
 
-        // beadandó pontfény
-        let light = new THREE.PointLight(0x47ff05, 20, 10);
-        light.position.set(x,y,z);
-        //scene.add(new THREE.PointLightHelper( light, 15 ))
+        ff.position.set(0, 0, 0);
 
-        //scene.add(light);
-        //scene.add(ff)
+        // Beadandó pontfény
+        let light = new THREE.PointLight(0x47ff05, 200, 100);
+        light.position.set(0, 0, 0);
 
-        fireFlyHolder.add(ff);
-        fireFlyHolder.add(light);
+        fireflyGroup.add(ff);
+        fireflyGroup.add(light);
+
+        fireflyGroup.position.set(x, y, z);
+
+        fireflyGroup.phase = 20 + 20*Math.random();
+        fireflyGroup.dir = Math.random() > 0.5 ? 1 : -1;
+
+
+        fireFlyLights.push(light);
+        fireFlyHolder.add(fireflyGroup);
     }
 
     function makeStar(x, y, z, scene){
@@ -283,124 +438,96 @@
         //scene.add(star)
     }
 
-    function makeOak(x, y, z, scene, foilageTexture){
-            // hengerből és gömbökből álló fa építése
-            let tree = new THREE.Group();
-            let height_factor = 8+ Math.floor(8*Math.random());
-            let radius = 10;
-            let lomb_cnt = 5;
+    function makeCustomTree(x, y, z, scene, name) {
 
-            let points = [];
+        let treeClone = loadedModels[name].clone();
+        if (!treeClone) return;
 
-            // ezek köré lehet majd csöver húzni
-            for (let i = 0; i < height_factor; i++)
-                points.push(new THREE.Vector3((0.5*Math.random() - 0.25), i*2, 0))
+        treeClone.position.set(x, y, z);
+        treeClone.rotation.y = 2*Math.PI *Math.random();
+        let random_scale = Math.random();
+        treeClone.scale.set(1+random_scale,1+random_scale,1+random_scale);
 
 
-            let path = new THREE.CatmullRomCurve3(points);
+        scene.add(treeClone);
+    }
+    function makeCustomRock(x, y, z, scene, name) {
 
-            let geometry = new THREE.TubeGeometry(path, 20, 2, 8, false);
-            let material = new THREE.MeshLambertMaterial( { color: 0x873e23, wireframe: wire_frame } );
-            let trunk = new THREE.Mesh(geometry, material);
+        let treeClone = loadedModels[name].clone();
+        if (!treeClone) return;
 
-            trunk.position.set(0, 0, 0);
-            trunk.rotation.set(0, Math.PI, 0); // beadandó követelmény
+        treeClone.position.set(x, y, z);
+        treeClone.rotation.y = 2*Math.PI *Math.random();
+        treeClone.scale.set(3+2*Math.random(),3+2*Math.random(),3+2*Math.random());
 
-            trunk.castShadow = true;
-            trunk.receiveShadow = true;
+        scene.add(treeClone);
+    }
+    function makeCustomTrunk(x, y, z, scene, name) {
 
-            tree.add(trunk);
+        let treeClone = loadedModels[name].clone();
+        if (!treeClone) return;
 
-            let colors = [0x138c2f, 0x21ba45, 0x0d561e]
+        treeClone.position.set(x, y, z);
+        treeClone.rotation.y = 2*Math.PI *Math.random();
+        let random_scale = 0.1*Math.random();
+        treeClone.scale.set(1+random_scale,1+random_scale,1+random_scale);
 
-            for (let i = 0; i < lomb_cnt; i++) {
-                let lombMaterial = new THREE.MeshLambertMaterial({ color: random_choice(colors), wireframe: wire_frame });
-                lombMaterial.map = foilageTexture;
 
-                let lomb = new THREE.Mesh(
-                    new THREE.SphereGeometry(radius, 10, 10),
-                    lombMaterial);
 
-                lomb.position.set(10*Math.random()-5, height_factor*2 +10*Math.random()-5, 10*Math.random()-5);
-                let random_scale = 0.5 + Math.random()/2
-                lomb.scale.set(random_scale,random_scale,random_scale);
-                lomb.castShadow = true;
-                lomb.receiveShadow = true;
-                tree.add(lomb);
-            }
-            tree.position.set(x, y, z);
 
-            scene.add(tree);
+        scene.add(treeClone);
     }
 
-    function makeMagicTree(x, y, z, scene){
-        // ez a sima makeOak, csak nagyobb és színesebb
-
-        let tree = new THREE.Group();
-        let height_factor = 50;
-        let radius = 40;
-        let lomb_cnt = 20;
+    function makeOak(x, y, z, scene, foilageTexture){
+        let height_factor = 8+ Math.floor(8*Math.random());
+        let radius = 10;
+        let lomb_cnt = 5;
 
         let points = [];
-
         for (let i = 0; i < height_factor; i++)
-            points.push(new THREE.Vector3( 2*Math.random()-1, i*2, 2*Math.random()-1))
+            points.push(new THREE.Vector3((0.5*Math.random() - 0.25), i*2, 0))
 
         let path = new THREE.CatmullRomCurve3(points);
-
-        let geometry = new THREE.TubeGeometry(path, 20, 10, 8, false);
+        let geometry = new THREE.TubeGeometry(path, 20, 2, 8, false);
         let material = new THREE.MeshLambertMaterial( { color: 0x873e23, wireframe: wire_frame } );
         let trunk = new THREE.Mesh(geometry, material);
 
         trunk.position.set(0, 0, 0);
-        trunk.rotation.set(0, Math.PI, 0); // beadandó követelmény
-
+        trunk.rotation.set(0, Math.PI, 0);
         trunk.castShadow = true;
         trunk.receiveShadow = true;
 
-        tree.add(trunk);
+        let trunkGroup = new THREE.Group();
+        trunkGroup.add(trunk);
+        trunkGroup.position.set(x, y, z);
+        scene.add(trunkGroup);
 
-        let colors = [0x825D24, 0x24822D, 0x244A82, 0x822479]
+        let colors = [0x138c2f, 0x21ba45, 0x0d561e]
+        let lombGroup = new THREE.Group();
 
         for (let i = 0; i < lomb_cnt; i++) {
-            let clr = random_choice(colors);
+            let lombMaterial = new THREE.MeshLambertMaterial({ color: random_choice(colors), wireframe: wire_frame });
+            lombMaterial.map = foilageTexture;
 
             let lomb = new THREE.Mesh(
                 new THREE.SphereGeometry(radius, 10, 10),
-                new THREE.MeshStandardMaterial({
-                    color: clr,
-                    emissive: clr,
-                    emissiveIntensity: 0.2,
-                    roughness: 0.3,
-                    wireframe: wire_frame
-                    }));
+                lombMaterial);
 
-            let random_factor = 100;
-            lomb.position.set(
-                random_factor*Math.random()-random_factor/2,
-                height_factor*2 + random_factor/2*Math.random()-random_factor/4,
-                random_factor*Math.random()-random_factor/2);
+            lomb.position.set(10*Math.random()-5, height_factor*2 +10*Math.random()-5, 10*Math.random()-5);
 
-            let random_scale = 0.5 + Math.random()/2;
-
+            let random_scale = 0.5 + Math.random()/2
             lomb.scale.set(random_scale,random_scale,random_scale);
             lomb.castShadow = true;
             lomb.receiveShadow = true;
 
-            tree.add(lomb);
+            lombGroup.add(lomb);
         }
 
-        for (let i = 0; i < 10; i++) {
-            makeFireFly(
-                x + (Math.random() - 0.5) * 300,
-                y + 80 + Math.random() * 30,
-                z + (Math.random() - 0.5) * 300,
-                scene
-            );
-        }
-        tree.position.set(x, y, z);
-        scene.add(tree);
+        lombGroup.position.set(x, y, z);
+
+        lombHolder.add(lombGroup);
     }
+
 
     function makeSmurf(x, y, z, scene, faceTexture){
         let smurf = new THREE.Group();
@@ -425,17 +552,6 @@
         head.position.set(0,1.7,0);
         smurf.add(head);
 
-        //Szakáll
-        /*
-        let beardGeometry = new THREE.CircleGeometry( 1, 6, 0, Math.PI/4 ); // pi/4 --> 45/2 --> 22.5 fokon áll a tengelye
-        let beardMaterial = new THREE.MeshLambertMaterial( { color: 0xffffff, wireframe: wire_frame } );
-        let beard = new THREE.Mesh( beardGeometry, beardMaterial );
-        beard.position.set(0,0.5,0.9)
-        // forgatás de csak a beadandó miatt, okosabban is lehetne
-        beard.rotation.set(0,0,THREE.MathUtils.degToRad(45 + 22.5))
-        smurf.add(beard)
-        */
-
         //Test
         let colors = [0xD9004C, 0xD92200, 0xD98D00, 0x00D98D, 0x004CD9];
         let geometryBody = new THREE.CylinderGeometry(0.8, 1, 2, 16);
@@ -455,10 +571,14 @@
         head.castShadow = true;
         body.castShadow = true;
 
+        smurf.dir = Math.random() > 0.5 ? 1 : -1;
+        smurf.phase =  30*Math.random();
+
+        smurfArray.push(smurf);
         scene.add(smurf);
     }
 
-    function makeHouse(x, y, z, scene, doorTexture, windowTexture){
+    function makeHouse(x, y, z, scene, doorTexture, windowTexture, roofTexture){
         let house = new THREE.Group();
 
         // Test
@@ -474,9 +594,10 @@
         //let geometryRoof = new THREE.CylinderGeometry(3.5, 3.5, 7, 3);
         let materialRoof = new THREE.MeshPhongMaterial({
             color:0xC4230E,
-            shininess: 40,
-            specular: 0xFFFFFF,
+            shininess: 10,
+            specular: 0x000000,
             wireframe: wire_frame});
+        materialRoof.map = roofTexture;
         let roof = new THREE.Mesh(geometryRoof, materialRoof);
 
         // Fáradságos forgatás
@@ -505,11 +626,13 @@
             window.rotation.set(0,THREE.MathUtils.degToRad(90),0)
             house.add(window);
 
-            let sLight = new THREE.SpotLight( 0xFFFFAA, 13, 50, 0.8);
+            let sLight = new THREE.SpotLight( 0xFFFFAA, 12, 100, 0.8);
             sLight.position.copy(windowPos[i]);
             sLight.decay = 0.1;
             sLight.penumbra = 0.4;
             sLight.castShadow = true;
+
+            windowLights.push(sLight);
 
             // hogy scalelődjön ez is a house-szal
             let target = new THREE.Object3D();
@@ -564,21 +687,45 @@
 
         render();
     }
-
     function animate() {
-        // Újabb képkocka rajzolásának kérése.
-        // Maximálisan 60 FPS-t biztosít a rendszer.
+        ff_time += 0.0005;
+        smurf_time += 0.0005;
+
         requestAnimationFrame( animate );
-        // Kameramozgás vezérlése
+
         controls.update();
-        starHolder.rotation.y += 0.0006;
-        starHolder.rotation.x += 0.0006;
-        starHolder.rotation.z += 0.0006;
 
-        fireFlyHolder.rotation.y -= 0.001;
-        //fireFlyHolder.position.y = 2*Math.random() + fireFlyHolder.position.x;
+        starHolder.rotation.x = day ? Math.PI : 0;
 
-        // Új képkocka rajzolása
+
+        fireFlyHolder.children.forEach(fireFly => {
+            fireFly.position.x += fireFly.dir * Math.sin(ff_time*fireFly.phase)*0.3;
+            fireFly.position.z += fireFly.dir * Math.cos(ff_time*fireFly.phase)*0.3;
+
+            fireFly.position.y += Math.sin(ff_time*fireFly.phase)*0.2;
+        })
+
+        if(day){
+            smurfArray.forEach(smurf => {
+                smurf.position.x += smurf.dir * Math.sin(smurf_time*smurf.phase)*0.3;
+                smurf.position.z += smurf.dir * Math.cos(smurf_time*smurf.phase)*0.3;
+            })
+        }
+
+/*
+        if(!smurfFlipping){
+            smurfFlipping = true;
+            smurfToFlip = random_choice(smurfArray);
+            smurfHolder.add(smurfToFlip);
+        }
+        else{
+            smurfToFlip.rotation.z += 0.1;
+            smurfToFlip.position.y += Math.sin(smurfToFlip.rotation.z)
+            if(smurfToFlip.rotation.z > 2 * Math.PI){
+                smurfFlipping = false;
+            }
+        }
+*/
         render();
     }
 
@@ -586,6 +733,40 @@
         // 3D -> 2D vetített kép kiszámítása.
         // scene 3D színtér képe a camera kamera szemszögéből.
         renderer.render( scene, camera );
+    }
+
+    function toggleWindowLights(){
+        for(let i = 0; windowLights.length > i; ++i){
+            windowLights[i].intensity = windowLightsOn ? 13 : 0;
+        }
+    }
+
+    function toggleFireFlyLights(){
+        for(let i = 0; fireFlyLights.length > i; ++i){
+            fireFlyLights[i].intensity = fireFlyLightsOn ? 200 : 0;
+        }
+    }
+
+    function toggleDayNightLight(){
+        if(day){
+
+            sunDirLight.intensity = 3;
+            moonDirLight.intensity = 0;
+
+            ambientLight.color.setHex(0xFFFFFF);
+            ambientLight.intensity = 0.8;
+
+            scene.background = new THREE.Color(0x87CEEB);
+        }
+        else{
+            sunDirLight.intensity = 0;
+            moonDirLight.intensity = 2;
+
+            ambientLight.color.setHex(0x8303ba);
+            ambientLight.intensity = 0.4;
+
+            scene.background = new THREE.Color(0x000000);
+        }
     }
 
 </script>
