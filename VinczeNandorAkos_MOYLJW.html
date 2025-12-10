@@ -144,7 +144,9 @@
     let lombHolder;
 
     let smurfArray = [];
-    let smurfHolder;
+    let smurfHolder1;
+    let smurfHolder2;
+    let smurfHolder3;
 
 
     let dragon;
@@ -304,7 +306,9 @@
 
         starHolder = new THREE.Object3D();
         fireFlyHolder = new THREE.Object3D();
-        smurfHolder = new THREE.Object3D();
+        smurfHolder1 = new THREE.Object3D();
+        smurfHolder2 = new THREE.Object3D();
+        smurfHolder3 = new THREE.Object3D();
         lombHolder = new THREE.Object3D();
 
         // Talaj
@@ -329,7 +333,7 @@
         let faceTextures = [];
 
         for (let i = 1; i <= 4; i++){
-            faceTextures.push(textureLoader.load('./texture/face'+i+'.jpg'))
+            faceTextures.push(textureLoader.load('./assets/texture/face'+i+'.jpg'))
         }
         // Törpeültetés
         for (let i = 0; i < 50; i++){
@@ -340,9 +344,9 @@
                 makeSmurf(x, 0, z, scene, random_choice(faceTextures));
         }
 
-        let doorTexture = textureLoader.load('./texture/door.jpg');
-        let windowTexture = textureLoader.load('./texture/window.jpg');
-        let roofTexture = textureLoader.load('./texture/roof.jpg');
+        let doorTexture = textureLoader.load('./assets/texture/door.jpg');
+        let windowTexture = textureLoader.load('./assets/texture/window.jpg');
+        let roofTexture = textureLoader.load('./assets/texture/roof.jpg');
         makeHouse(0,5,0,scene,doorTexture,windowTexture,roofTexture);
         makeHouse(10,5,70,scene,doorTexture,windowTexture,roofTexture);
 
@@ -351,7 +355,7 @@
         let moon_z = sky_rad/2;
         let moon_y = skyY(moon_x, moon_z, sky_rad);
 
-        let moonTexture = textureLoader.load('./texture/moonmap1k.jpg');
+        let moonTexture = textureLoader.load('./assets/texture/moonmap1k.jpg');
 
         let moonGeometry = new THREE.SphereGeometry(25,32,32);
         let moonMaterial = new THREE.MeshBasicMaterial({color: 0xffffffff});
@@ -430,7 +434,9 @@
 
         scene.add(starHolder);
         scene.add(fireFlyHolder);
-        scene.add(smurfHolder);
+        scene.add(smurfHolder1);
+        scene.add(smurfHolder2);
+        scene.add(smurfHolder3);
         scene.add(lombHolder);
 
         // Az ablak későbbi átméretezése esetén visszahívható függvény megadása
@@ -573,8 +579,21 @@
         smurf.dir = Math.random() > 0.5 ? 1 : -1;
         smurf.phase =  20+20*Math.random();
 
+        let choice = Math.random();
+        if(choice > 0.33){
+            if(choice < 0.66){
+                smurfHolder2.add(smurf);
+            }
+            else{
+                smurfHolder3.add(smurf);
+            }
+        }
+        else{
+            smurfHolder1.add(smurf);
+        }
+
         smurfArray.push(smurf);
-        scene.add(smurf);
+        //scene.add(smurf);
     }
 
     function makeHouse(x, y, z, scene, doorTexture, windowTexture, roofTexture){
@@ -643,8 +662,15 @@
         doorMaterial.map = doorTexture;
         let doorGeometry = new THREE.PlaneGeometry(1.2, 2);
         let door = new THREE.Mesh(doorGeometry, doorMaterial);
-        door.position.set(0, -0.5, -2.51);
+        door.position.set(0, 0, -2.51);
         house.add(door);
+
+        // titok
+        let secretMaterial = new THREE.MeshLambertMaterial({ color: 0xFFAA33, side: THREE.DoubleSide });
+        let secretGeometry = new THREE.SphereGeometry(0.5);
+        let secret = new THREE.Mesh(secretGeometry, secretMaterial);
+        secret.position.set(0, 1, 0);
+        house.add(secret);
 
         let size = 6;
         house.position.set(x,y,z);
@@ -737,6 +763,8 @@
             .start();
     }
 
+    let smurfJumpPhase = 270;
+
     function animate() {
         ff_time += 0.0005;
         smurf_time += 0.0005;
@@ -756,6 +784,16 @@
         })
 
         if(day){
+            smurfHolder1.position.y = 2+Math.sin(smurf_time * smurfJumpPhase) * 2;
+            smurfHolder1.scale.y = 1+0.2*Math.sin(smurf_time * smurfJumpPhase);
+
+            smurfHolder2.position.y = 2+Math.sin((Math.PI/2 + smurf_time) * smurfJumpPhase) * 2;
+            smurfHolder2.scale.y = 1+0.2*Math.sin((Math.PI/2 + smurf_time) * smurfJumpPhase);
+
+            smurfHolder3.position.y = 2+Math.sin((Math.PI/3 + smurf_time) * smurfJumpPhase) * 2;
+            smurfHolder3.scale.y = 1+0.2*Math.sin((Math.PI/3 + smurf_time) * smurfJumpPhase);
+
+
             smurfArray.forEach(smurf => {
                 smurf.position.x += smurf.dir * Math.sin(smurf_time*smurf.phase)*0.3;
                 smurf.position.z += smurf.dir * Math.cos(smurf_time*smurf.phase)*0.3;
