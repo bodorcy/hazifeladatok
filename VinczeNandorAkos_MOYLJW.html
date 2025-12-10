@@ -10,19 +10,46 @@
 
         body { margin: 0; overflow: hidden; }
         canvas { width: 100%; height: 100% }
+
+        #neptun {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: none;
+            text-align: left;
+            font-family: 'Courier New', monospace;
+            font-size: 20px;
+        }
+
         #info {
             position: absolute;
-            top: 30px;
-            left: 10px;
+            top: 10px;
+            left: 500px;
             width: 200px;
-            text-align: left;
+            text-align: center;
             z-index: 100;
             display:block;
             color: black;
-            font-size: 7px;
+            font-family: 'Courier New', monospace;
+            font-size: 40px;
             opacity: 0.7;
         }
         #info a { color: #f00; font-weight: bold; text-decoration: underline; cursor: pointer }
+
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            text-align: left;
+            z-index: 100;
+            display: none;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 15px;
+        }
+
     </style>
 </head>
 
@@ -30,6 +57,23 @@
 
 <div id="info">
     <p id="infopanel"></p>
+</div>
+
+<div id="controls">
+    <p><b>Irányítás</b></p>
+    <p>I : Információ KI/BE</p>
+    <p>1 : Ablak fények </p>
+    <p>2 : Bogár fények</p>
+    <p>L : Nappal-Éjszaka</p>
+    <p>D : Sárkány elrepül/visszajön</p>
+    <p>Egér : Forgatás</p>
+
+</div>
+
+<div id="neptun">
+    <p>Vincze Nándor Ákos</p>
+    <p>MOYLJW</p>
+    <p>Prog. informatikus, 2025/26/I.</p>
 </div>
 
 
@@ -40,7 +84,8 @@
         "three": "./js-r178/build/three.module.js",
         "trackballcontrols": "./js-r178/examples/jsm/controls/TrackballControls.js",
         "OBJLoader": "./js-r178/examples/jsm/loaders/OBJLoader.js",
-        "MTLLoader": "./js-r178/examples/jsm/loaders/MTLLoader.js"
+        "MTLLoader": "./js-r178/examples/jsm/loaders/MTLLoader.js",
+        "tween": "./js-r178/examples/jsm/libs/tween.module.js"
     }
 }
 </script>
@@ -50,6 +95,7 @@
     import { OBJLoader } from 'OBJLoader';
     import { MTLLoader } from 'MTLLoader';
     import { TrackballControls } from 'trackballcontrols';
+    import * as TWEEN from 'tween';
 
     let loadedModels = {};
 
@@ -68,6 +114,7 @@
                                 child.scale.set(3, 3, 3);
                                 child.castShadow = true;
                                 child.receiveShadow = true;
+
                                 child.material = new THREE.MeshPhongMaterial( {
                                     color: child.material.color,
                                     shininess: 10,
@@ -75,7 +122,6 @@
                                     wireframe: wire_frame} );
                             }
                         });
-
                         loadedModels[name] = object;
                         manager.itemEnd(OBJFile);
                     });
@@ -88,7 +134,6 @@
     let scene, camera;
     let controls;
     let wire_frame = false;  // wireframe vagy kitöltött módban való megjelenítés
-    let shadow = true;  // hogy ne robbanjon szét a gép
 
     let plane_size = 800;
     let sky_rad = plane_size / 2;
@@ -100,8 +145,9 @@
 
     let smurfArray = [];
     let smurfHolder;
-    let smurfFlipping = false;
-    let smurfToFlip;
+
+
+    let dragon;
 
     // vezerles
 
@@ -117,50 +163,53 @@
     let ambientLight;
     let moonDirLight;
     let sunDirLight;
+
+    let dragonAway = false;
+
+    let shadow = true;  // hogy ne robbanjon szét a gép
     function setInfoPanelText( msg ) {
         infoPanel.innerHTML = msg;
-    }
-
-    function appendInfoPanelText( msg ) {
-        let str = infoPanel.innerHTML;
-        str = str + '<br/>' + msg;
-        infoPanel.innerHTML = str;
     }
 
     let tree_names = ['tree', 'tree2', 'tree3'];
     let rock_names = ['rock1', 'rock2', 'rock3', 'rock4', 'rock5'];
     let trunk_names = ['trunk', 'trunk2']
+    let dragon_name = 'dragon';
 
     function populateScene() {
-        for (let i = 0; i < 200; i++){
+        // fák
+        for (let i = 0; i < 150; i++){
+            let x = 0.75*plane_size*Math.random()-0.75*plane_size/2;
+            let z = 0.75*plane_size*Math.random()-0.75*plane_size/2;
+
+            if(!clipsIntoHouse(x, z, 0, 0) && !clipsIntoHouse(x, z, 10, 70)) {
+                makeTree(x, 0, z, scene, random_choice(tree_names));
+            }
+        }
+        // kövek
+        for (let i = 0; i < 150; i++){
             let x = plane_size*Math.random()-sky_rad;
             let z = plane_size*Math.random()-sky_rad;
 
             if(!clipsIntoHouse(x,z, 0, 0) && !clipsIntoHouse(x,z, 10, 70)) {
-                makeCustomTree(x, 0, z, scene, random_choice(tree_names));
+                makeRock(x, 0, z, scene, random_choice(rock_names));
             }
         }
-        for (let i = 0; i < 200; i++){
+        // fatörzs
+        for (let i = 0; i < 40; i++){
             let x = plane_size*Math.random()-sky_rad;
             let z = plane_size*Math.random()-sky_rad;
 
             if(!clipsIntoHouse(x,z, 0, 0) && !clipsIntoHouse(x,z, 10, 70)) {
-                makeCustomRock(x, 0, z, scene, random_choice(rock_names));
+                makeTrunk(x, 0, z, scene, random_choice(trunk_names));
             }
         }
-        for (let i = 0; i < 50; i++){
-            let x = plane_size*Math.random()-sky_rad;
-            let z = plane_size*Math.random()-sky_rad;
-
-            if(!clipsIntoHouse(x,z, 0, 0) && !clipsIntoHouse(x,z, 10, 70)) {
-                makeCustomTrunk(x, 0, z, scene, random_choice(trunk_names));
-            }
-        }
+        // sárkány
+        makeDragon(0, 150, -250, scene, dragon_name);
     }
 
     init();
     function init() {
-
         // Böngésző ablakméret lekérése és méretarány számítása
         HEIGHT = window.innerHeight;
         WIDTH = window.innerWidth;
@@ -178,40 +227,38 @@
 
         // Kamera létrehozása és vetítési paramétereinek beállítása
         camera = new THREE.PerspectiveCamera( 80, aspectRatio, 0.1, 1000 );
-        camera.position.set( -sky_rad/3, 50, -sky_rad/3);
+        camera.position.set( -270, 145, -270);
         camera.lookAt( scene.position.x, scene.position.y + 50, scene.position.z );
 
         ////////////////// 4. bead: LoadingManager //////////////////
         infoPanel = document.getElementById( 'infopanel' );
 
-        setInfoPanelText( 'Erőforrások betöltése!' );
+        setInfoPanelText( 'Betöltés...' );
 
         let manager = new THREE.LoadingManager();
-        manager.onProgress = function ( item, loaded, total ) {
-            console.log( 'Manager onProgress:', item, 'kész; ', loaded, ' a ', total, '-bol betöltve.' );
-            let progressString = item + ' kész;<br/>' + loaded + ' a ' + total + '-bol betöltve';
-            appendInfoPanelText( progressString );
-        };
         manager.onLoad = function () {
-            console.log( 'onLoad meghívva, renderelés megkezdése.' );
-            appendInfoPanelText( 'onLoad meghívva, renderelés megkezdése' );
             populateScene();
+            dragon.dir = 1;
+            document.getElementById('info').style.display = 'none';
+            document.getElementById('neptun').style.display = 'block';
+            document.getElementById('controls').style.display = 'block';
+
+            moveDragon();
             animate();
         };
 
         for(let i = 0; tree_names.length > i; ++i){
-            loader_obj_mtl('assets/my_models/'+tree_names[i]+'.obj', 'assets/my_models/'+tree_names[i]+'.mtl', tree_names[i], manager);
+            loader_obj_mtl('./assets/my_models/'+tree_names[i]+'.obj', './assets/my_models/'+tree_names[i]+'.mtl', tree_names[i], manager);
         }
-
         for(let i = 0; rock_names.length > i; ++i){
-            loader_obj_mtl('assets/my_models/'+rock_names[i]+'.obj', 'assets/my_models/'+rock_names[i]+'.mtl', rock_names[i], manager);
+            loader_obj_mtl('./assets/my_models/'+rock_names[i]+'.obj', './assets/my_models/'+rock_names[i]+'.mtl', rock_names[i], manager);
         }
-
         for(let i = 0; trunk_names.length > i; ++i){
-            loader_obj_mtl('assets/my_models/'+trunk_names[i]+'.obj', 'assets/my_models/'+trunk_names[i]+'.mtl', trunk_names[i], manager);
+            loader_obj_mtl('./assets/my_models/'+trunk_names[i]+'.obj', './assets/my_models/'+trunk_names[i]+'.mtl', trunk_names[i], manager);
         }
+        loader_obj_mtl('./assets/my_models/'+dragon_name+'.obj', './assets/my_models/'+dragon_name+'.mtl', dragon_name, manager);
 
-        let textureLoader = new THREE.TextureLoader( manager );
+        let textureLoader = new THREE.TextureLoader(manager);
 
         ////////////////// event listener //////////////////
         window.addEventListener('keydown', keyDown);
@@ -232,6 +279,24 @@
                     day = !day;
                     toggleDayNightLight();
                     break;
+
+                case 'I'.charCodeAt(0):
+                    let controls = document.getElementById('controls');
+                    let neptun = document.getElementById('neptun');
+
+                    if(controls.style.display === 'none'){
+                        controls.style.display = 'block';
+                        neptun.style.display = 'block';
+                    }
+                    else{
+                        controls.style.display = 'none';
+                        neptun.style.display = 'none';
+                    }
+                    break;
+
+                case 'D'.charCodeAt(0):
+                    dragonAway = !dragonAway;
+                    break;
             }
         }
 
@@ -249,7 +314,6 @@
         let planeMesh = new THREE.Mesh( planeGeometry, planeMaterial );
 
         planeMesh.rotation.set(-plane_rot, 0, 0);
-        planeMesh.scale.set(1,1,1);  // beadandó követelmény
         planeMesh.receiveShadow = true;
         planeMesh.castShadow = true;
         scene.add( planeMesh );
@@ -259,22 +323,13 @@
         let skyMaterial = new THREE.MeshStandardMaterial({color: 0x050399, side: THREE.BackSide, wireframe: wire_frame});
         let skyMesh = new THREE.Mesh( skyGeometry, skyMaterial );
         skyMesh.scale.set(sky_rad, sky_rad, sky_rad);
-        skyMesh.position.set(0, 2, 0)  // beadandó követelmény
 
         scene.add(skyMesh)
-
-        let foilageTextures = [];
-
-        for(let i = 1; i <= 3; i++){
-            foilageTextures.push(textureLoader.load('texture/foilage'+i+'.jpg'))
-        }
-
-        //makeMagicTree(100, 0, 0, scene);
 
         let faceTextures = [];
 
         for (let i = 1; i <= 4; i++){
-            faceTextures.push(textureLoader.load('texture/face'+i+'.jpg'))
+            faceTextures.push(textureLoader.load('./texture/face'+i+'.jpg'))
         }
         // Törpeültetés
         for (let i = 0; i < 50; i++){
@@ -285,10 +340,9 @@
                 makeSmurf(x, 0, z, scene, random_choice(faceTextures));
         }
 
-        //
-        let doorTexture = textureLoader.load('texture/door.jpg');
-        let windowTexture = textureLoader.load('texture/window.jpg');
-        let roofTexture = textureLoader.load('texture/roof.jpg');
+        let doorTexture = textureLoader.load('./texture/door.jpg');
+        let windowTexture = textureLoader.load('./texture/window.jpg');
+        let roofTexture = textureLoader.load('./texture/roof.jpg');
         makeHouse(0,5,0,scene,doorTexture,windowTexture,roofTexture);
         makeHouse(10,5,70,scene,doorTexture,windowTexture,roofTexture);
 
@@ -297,7 +351,7 @@
         let moon_z = sky_rad/2;
         let moon_y = skyY(moon_x, moon_z, sky_rad);
 
-        let moonTexture = textureLoader.load('texture/moonmap1k.jpg');
+        let moonTexture = textureLoader.load('./texture/moonmap1k.jpg');
 
         let moonGeometry = new THREE.SphereGeometry(25,32,32);
         let moonMaterial = new THREE.MeshBasicMaterial({color: 0xffffffff});
@@ -308,7 +362,6 @@
         starHolder.add(moon);
 
         // Nap
-
         let sunGeometry = new THREE.SphereGeometry(25,32,32);
         let sunMaterial = new THREE.MeshBasicMaterial({color: 0xf2f20f});
         let sun = new THREE.Mesh(sunGeometry, sunMaterial);
@@ -326,14 +379,12 @@
         moonDirLight = new THREE.DirectionalLight(0xffffff, 1);
         moonDirLight.position.set(moon_x, moon_y, moon_z);
         moonDirLight.castShadow = true;
-        //scene.add(new THREE.DirectionalLightHelper( moonDirLight, 1 ));
 
         moonDirLight.shadow.mapSize.width = 512;
         moonDirLight.shadow.mapSize.height = 512;
 
         // ezeket nem én találtam ki, de nélkülük úgy tűnik nem működik az árnyék
         // (talán túl messze van / túl nagy a terület)
-
         moonDirLight.shadow.camera.near = 100;
         moonDirLight.shadow.camera.far = 1000;
         moonDirLight.shadow.camera.left = -500;
@@ -344,13 +395,9 @@
         sunDirLight = new THREE.DirectionalLight(0xffffff, 3);
         sunDirLight.position.set(-moon_x, -moon_y, -moon_z);
         sunDirLight.castShadow = true;
-        //scene.add(new THREE.DirectionalLightHelper( sunDirLight, 1 ));
 
         sunDirLight.shadow.mapSize.width = 512;
         sunDirLight.shadow.mapSize.height = 512;
-
-        // ezeket nem én találtam ki, de nélkülük úgy tűnik nem működik az árnyék
-        // (talán túl messze van / túl nagy a terület)
 
         sunDirLight.shadow.camera.near = 300;
         sunDirLight.shadow.camera.far = 1000;
@@ -362,13 +409,12 @@
         starHolder.add(sunDirLight)
 
         // csillagozás
-
         for(let i = 0; i < 300; i++){
             let x = 2*sky_rad*Math.random()-sky_rad;
             let z = 2*sky_rad*Math.random()-sky_rad;
             let y = skyY(x,z, sky_rad);
 
-            makeStar(x,y,z,scene)
+            makeStar(x, y, z)
         }
 
         // bogarak
@@ -377,7 +423,7 @@
             let z = 2*sky_rad*Math.random()-sky_rad;
             let y = 0.5 + 5*Math.random()
 
-            makeFireFly(x,y,z,scene)
+            makeFireFly(x,y,z)
         }
 
         //////////////////// Holderek hozzáadaása ////////////////////
@@ -386,7 +432,6 @@
         scene.add(fireFlyHolder);
         scene.add(smurfHolder);
         scene.add(lombHolder);
-
 
         // Az ablak későbbi átméretezése esetén visszahívható függvény megadása
         window.addEventListener( 'resize', handleWindowResize, wire_frame );
@@ -399,10 +444,10 @@
 
     function clipsIntoHouse(x,z, h_x, h_z){
         // ne ütközzenek az objektumok a házzal
-        return Math.abs(x - h_x) < 10 || Math.abs(z - h_z) < 10;
+        return Math.abs(x - h_x) < 20 || Math.abs(z - h_z) < 20;
     }
 
-    function makeFireFly(x, y, z, scene){
+    function makeFireFly(x, y, z){
         let fireflyGroup = new THREE.Group();
 
         let geometry = new THREE.SphereGeometry(0.3, 8, 8);
@@ -428,17 +473,15 @@
         fireFlyHolder.add(fireflyGroup);
     }
 
-    function makeStar(x, y, z, scene){
+    function makeStar(x, y, z){
         let geometry = new THREE.SphereGeometry(0.5,8,8);
         let material = new THREE.MeshBasicMaterial({color: 0xffffff})
         let star = new THREE.Mesh(geometry, material);
         star.position.set(x,y,z);
         starHolder.add(star);
-        //stars.push(star);
-        //scene.add(star)
     }
 
-    function makeCustomTree(x, y, z, scene, name) {
+    function makeTree(x, y, z, scene, name) {
 
         let treeClone = loadedModels[name].clone();
         if (!treeClone) return;
@@ -451,7 +494,7 @@
 
         scene.add(treeClone);
     }
-    function makeCustomRock(x, y, z, scene, name) {
+    function makeRock(x, y, z, scene, name) {
 
         let treeClone = loadedModels[name].clone();
         if (!treeClone) return;
@@ -462,7 +505,7 @@
 
         scene.add(treeClone);
     }
-    function makeCustomTrunk(x, y, z, scene, name) {
+    function makeTrunk(x, y, z, scene, name) {
 
         let treeClone = loadedModels[name].clone();
         if (!treeClone) return;
@@ -473,65 +516,22 @@
         treeClone.scale.set(1+random_scale,1+random_scale,1+random_scale);
 
 
-
-
         scene.add(treeClone);
     }
 
-    function makeOak(x, y, z, scene, foilageTexture){
-        let height_factor = 8+ Math.floor(8*Math.random());
-        let radius = 10;
-        let lomb_cnt = 5;
+    function makeDragon(x, y, z, scene, name) {
 
-        let points = [];
-        for (let i = 0; i < height_factor; i++)
-            points.push(new THREE.Vector3((0.5*Math.random() - 0.25), i*2, 0))
+        dragon = loadedModels[name].clone();
+        if (!dragon) return;
 
-        let path = new THREE.CatmullRomCurve3(points);
-        let geometry = new THREE.TubeGeometry(path, 20, 2, 8, false);
-        let material = new THREE.MeshLambertMaterial( { color: 0x873e23, wireframe: wire_frame } );
-        let trunk = new THREE.Mesh(geometry, material);
+        dragon.position.set(x, y, z);
 
-        trunk.position.set(0, 0, 0);
-        trunk.rotation.set(0, Math.PI, 0);
-        trunk.castShadow = true;
-        trunk.receiveShadow = true;
-
-        let trunkGroup = new THREE.Group();
-        trunkGroup.add(trunk);
-        trunkGroup.position.set(x, y, z);
-        scene.add(trunkGroup);
-
-        let colors = [0x138c2f, 0x21ba45, 0x0d561e]
-        let lombGroup = new THREE.Group();
-
-        for (let i = 0; i < lomb_cnt; i++) {
-            let lombMaterial = new THREE.MeshLambertMaterial({ color: random_choice(colors), wireframe: wire_frame });
-            lombMaterial.map = foilageTexture;
-
-            let lomb = new THREE.Mesh(
-                new THREE.SphereGeometry(radius, 10, 10),
-                lombMaterial);
-
-            lomb.position.set(10*Math.random()-5, height_factor*2 +10*Math.random()-5, 10*Math.random()-5);
-
-            let random_scale = 0.5 + Math.random()/2
-            lomb.scale.set(random_scale,random_scale,random_scale);
-            lomb.castShadow = true;
-            lomb.receiveShadow = true;
-
-            lombGroup.add(lomb);
-        }
-
-        lombGroup.position.set(x, y, z);
-
-        lombHolder.add(lombGroup);
+        scene.add(dragon);
     }
 
 
     function makeSmurf(x, y, z, scene, faceTexture){
         let smurf = new THREE.Group();
-
         //Sapka
         let geometryHat = new THREE.ConeGeometry( 1, 2, 16 );
         let materialHat = new THREE.MeshPhongMaterial( {
@@ -541,7 +541,6 @@
             wireframe: wire_frame} );
         let hat = new THREE.Mesh(geometryHat, materialHat );
         hat.position.set(0,3.3,0);
-        hat.rotation.set(0, Math.PI, 0); // beadandó követelmény
         smurf.add(hat);
 
         //Fej
@@ -572,7 +571,7 @@
         body.castShadow = true;
 
         smurf.dir = Math.random() > 0.5 ? 1 : -1;
-        smurf.phase =  30*Math.random();
+        smurf.phase =  20+20*Math.random();
 
         smurfArray.push(smurf);
         scene.add(smurf);
@@ -586,12 +585,10 @@
         let materialRect = new THREE.MeshLambertMaterial({color:0x9C530B, wireframe: wire_frame});
         let rect = new THREE.Mesh(geometryRect, materialRect);
         rect.position.set(0, 0, 0);
-        rect.rotation.set(0, 2*Math.PI, 0);  // beadandó követelmény
         house.add(rect);
 
         // Tető
         let geometryRoof = new THREE.ConeGeometry(3, 4, 4)
-        //let geometryRoof = new THREE.CylinderGeometry(3.5, 3.5, 7, 3);
         let materialRoof = new THREE.MeshPhongMaterial({
             color:0xC4230E,
             shininess: 10,
@@ -601,8 +598,6 @@
         let roof = new THREE.Mesh(geometryRoof, materialRoof);
 
         // Fáradságos forgatás
-        //roof.rotation.set(THREE.MathUtils.degToRad(90),THREE.MathUtils.degToRad(180),THREE.MathUtils.degToRad(180));
-        //let scale = 0.75;
         roof.rotation.set(0, THREE.MathUtils.degToRad(45), 0)
         roof.position.set(0, 3.5, 0);
         roof.scale.set(1.5, 1, 1.5);
@@ -641,9 +636,6 @@
 
             house.add(sLight);
             house.add(target);
-
-            //if (i === 0)
-            //    house.add(new THREE.SpotLightHelper( sLight ))
         }
 
         // ajtó
@@ -687,16 +679,74 @@
 
         render();
     }
+
+    function moveDragon() {
+        let currentZ = { z: dragon.position.z };
+        let targetZ = { z: dragon.position.z + dragon.dir * 500};
+
+        let duration = 3000;
+        new TWEEN.Tween(currentZ)
+            .to(targetZ, duration)
+            .onUpdate(function() {
+                dragon.position.z = currentZ.z + dragon.dir*0.5;
+                dragon.position.y = dragon.position.y +0.6*Math.sin(0.01*dragon.position.z)
+                dragon.rotation.x = dragon.rotation.x + 0.007*Math.sin(0.05*dragon.position.z)
+            })
+            .onComplete(function(){
+                dragon.dir = -dragon.dir;
+                if(dragonAway) makeDragonGoAway();
+                else rotateDragon();
+            })
+            .easing(TWEEN.Easing.Linear.None)
+            .start();
+    }
+
+    function rotateDragon() {
+        let currentRotation = { y: dragon.rotation.y };
+        let targetRotation = { y: dragon.rotation.y +  Math.PI };
+
+        let duration = 1000;
+        new TWEEN.Tween(currentRotation)
+            .to(targetRotation, duration)
+            .onUpdate(function() {
+                dragon.rotation.y = currentRotation.y % (2 * Math.PI);
+                dragon.position.z = dragon.position.z + dragon.dir*0.3;
+            })
+            .onComplete(moveDragon)
+
+            .easing(TWEEN.Easing.Quintic.Out)
+            .start();
+    }
+
+    function makeDragonGoAway() {
+        let currentY = { y: dragon.position.y };
+        let targetY = { y: (dragon.position.y > 400 ? 150 : 450)};
+
+        let duration = 2000;
+
+        new TWEEN.Tween(currentY)
+            .to(targetY, duration)
+            .onUpdate(function() {
+                dragon.position.y = currentY.y;
+            })
+            .onComplete(function (){
+                dragonAway = !dragonAway;
+                moveDragon();
+            })
+            .easing(TWEEN.Easing.Elastic.InOut)
+            .start();
+    }
+
     function animate() {
         ff_time += 0.0005;
         smurf_time += 0.0005;
 
-        requestAnimationFrame( animate );
+        requestAnimationFrame(animate);
 
         controls.update();
+        TWEEN.update();
 
         starHolder.rotation.x = day ? Math.PI : 0;
-
 
         fireFlyHolder.children.forEach(fireFly => {
             fireFly.position.x += fireFly.dir * Math.sin(ff_time*fireFly.phase)*0.3;
@@ -712,20 +762,6 @@
             })
         }
 
-/*
-        if(!smurfFlipping){
-            smurfFlipping = true;
-            smurfToFlip = random_choice(smurfArray);
-            smurfHolder.add(smurfToFlip);
-        }
-        else{
-            smurfToFlip.rotation.z += 0.1;
-            smurfToFlip.position.y += Math.sin(smurfToFlip.rotation.z)
-            if(smurfToFlip.rotation.z > 2 * Math.PI){
-                smurfFlipping = false;
-            }
-        }
-*/
         render();
     }
 
@@ -749,7 +785,6 @@
 
     function toggleDayNightLight(){
         if(day){
-
             sunDirLight.intensity = 3;
             moonDirLight.intensity = 0;
 
