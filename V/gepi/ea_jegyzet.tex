@@ -1,0 +1,320 @@
+\documentclass{article}
+
+\usepackage{amsmath, amsthm, amssymb}
+
+\newtheorem*{theorem}{Állítás}
+\newtheorem*{definition}{Definíció}
+\newtheorem*{remark}{Megjegyzés}
+\newtheorem*{lemma}{Módszer}
+
+\title{Gépi tanulás a gyakorlatban, előadás vázlat}
+\author{Vincze Nándor}
+\begin{document}
+
+\maketitle
+
+\section{Bevezető, alapfogalmak}
+\begin{definition}[Gépi tanulás]
+    Az intelligens viselkedés azon része, amely a tanulás képességén alapul. Minden olyan megoldás,
+    ahol a renszer teljesítménye javul a tapasztaltok gyűjétése által.
+\end{definition}
+
+\begin{remark}
+    $\text{Gépi tanulás} \subset \text{Mesterséges intelligencia}$
+\end{remark}
+
+\begin{itemize}
+    \item Képfelismerés
+    \item Önvezető autó
+    \item Ajánlórendszerek
+\end{itemize}
+
+\begin{definition}[Gépi tanulás 2]
+    Ha adott egy feladat $T$, és egy $P$ teljesítménymetrika, akkor gépi tanulásról beszélünk,
+    ha a rendszer egyre több $E$ tapasztalalat hatására a $P$ teljesítménye a $T$ feladaton javul.
+\end{definition}
+\begin{definition}[Data science]
+    Üzleti problémák megoldása, statisztikai elemzések, gépi tanulás alkalmazásával.
+\end{definition}
+\begin{remark}
+    Gépi tanulás esetén egy konkrét feladatot akarunk megoldani minél jobban.
+\end{remark}
+\begin{definition}
+[Felügyelt tanulás]
+    Megfigyelés és célérték is áll rendelezésre, a rendszer célja, hogy nem látott
+    példákra is a lehető legjobb célértéket jósolja meg.
+\end{definition}
+
+\begin{definition}
+    [Felügyelelt nélküli tanulás]
+    Csak a megfigyelés áll rendelkezésre, a rendszer célja a mintázatok és összefüggések felismerése.
+\end{definition}
+
+\begin{definition}
+    [Megerősítéses tanulás]
+    A rendszer egy környezettel lép kölcsönhatásba, és a visszajelzések alapján tanul.
+\end{definition}
+
+\begin{definition}
+    [Osztályozási feladat]
+    Egyedek előre meghatározott osztályokba való besorolása.
+\end{definition}
+\begin{definition}
+    [Regressziós feladat]
+    Az egyedekhez tartozó folytonos célértékek előrejelzése.
+\end{definition}
+\begin{definition}
+    [Jellemzők]
+    Az egyedek leíró tulajdonságok. Lehet folytonos vagy diszkrét.
+\end{definition}
+\begin{definition}
+    [Gépi tanulás loop]
+    gépi tanulási feladat megoldásának lépései:
+    \begin{itemize}
+    \item adatgyűjtés
+    \item előfeldolgozás
+    \item jellemző kinyerés
+    \item modell kiválasztás
+    \item tanítás
+    \item kiértékelés
+    \end{itemize}
+\end{definition}
+
+\newpage
+
+\section{Egyszerű statisztikai döntések}
+Az adathalmaz statisztikáiból egyszerű döntési szabályokat hozunk létre.
+\textbf{Átlag, szórás, medián, min, max stb...} \\
+Hisztogramok, scatter plot.
+
+\begin{definition}
+    [Konstans döntés]
+    A jellemzőket nem veszzük figyelembe, és csak a célváltozó alapján predikálunk.
+    Diszkrét esetben módusz, folytonos esetben átlag.
+\end{definition}
+\begin{definition}
+    [Egyetlen jellemző alapján történő döntés]
+    Triviális.
+\end{definition}
+
+\begin{definition}
+    [Korreláció (pongyola)]
+    Két változó közötti \textbf{lineáris} kapcsolat mértéke. $\rho \in [-1, 1]$
+\end{definition}
+A jellemzők kiválasztására több módszer is létezik, pl $\chi^2$ teszt.
+
+\newpage
+\section{Osztályozási feladatok, döntési fák}
+Osztályozási feladat példák, train/test split, metrikák.
+
+\begin{definition}
+    [$k$-fold cross validation]
+    Az adathalmazt $k$ részre bontjuk, és $k$ iterációt/kisérletet futtatunk.
+    Minden itrációban pontosan 1 részhalmazt használunk tesztelésre, a maradék $k-1$ részhalmnazt
+    tanításra. Ekkor minden egyed pontosan egyszer kerül a teszthalmazba.
+\end{definition}
+
+\begin{definition}
+    [Confusion matrix]
+    \begin{tabular}{c|c|c}
+                & Igaz pozitív & Igaz negatív \\
+        \hline
+    Predikált pozitív & TP & FP \\
+    Predikált negatív & FN & TN \\
+    \end{tabular}
+\end{definition}
+
+\begin{definition}
+    [Accuracy]
+    $acc = \frac{TP + TN}{TP + TN + FP + FN}$
+\end{definition}
+\begin{definition}
+    [Precision]
+    $prec = \frac{TP}{TP + FP}$
+\end{definition}
+\begin{definition}
+    [Recall]
+    $recall = \frac{TP}{TP + FN}$
+\end{definition}
+\begin{definition}
+    [F1 score]
+    $F1 = 2 \cdot \frac{prec \cdot recall}{prec + recall}$
+\end{definition}
+\begin{definition}
+    [Döntési fa]
+    Egy olyan tanuló algorimtus, ami egy fa struktúra alapján osztályozási feladatot lát el.
+    A belső csúcsok jellemzőkkel cimkézettek, melyek szerint a bemeneti egyedeket szétválasztjuk.
+    A levelek az adott szétválasztások szerint predikált osztálycímkék.\\
+    Folytonos és dikszkrét jellemzők esetén is alkalmazható.\\
+    Néhány jellemző:
+    \begin{itemize}
+        \item nem minden jellemző kerül felhasználásra
+        \item a levelek mélysége nem azonos
+        \item jól vizualizálható
+        \item explicit szabályokat tanul meg a jellemzők közötti
+        \\ \\ DE
+        \item greedy algorimtus
+        \item sok jellemző esetén sok példa kell
+    \end{itemize}
+\end{definition}
+\begin{definition}
+    [Erdő osztályozó]
+    Több, kisebb döntési fa együttes szavazata alapján jön létre a végső predikció.
+\end{definition}
+\newpage
+
+\section{Text mining és lineáris gépek}
+Strukturálatlan szöveges adatok automatikus feldolgozása. Több nehézség, mint a szinonímaszavak, szlengek,
+nyelvjárások, hibák stb\dots\\
+Néhány alkalmazása:
+\begin{itemize}
+    \item chatbot
+    \item fordítás
+    \item informácio kinyerés
+    \item dokumentum osztályozás
+    \item spam szűrés
+\end{itemize}
+\begin{lemma}
+    [Szövegek előfeldolgozása]
+    \begin{enumerate}
+    \item Tokenizálás: szavakra bontás
+    \item Normalizálás: kis/nagybetű, ékezetek stb\dots
+    \item Lemmatizálás: szótőkinyerés, vagy Stemming: ragok egyszerű levágása
+    \item írásjelek eltávolítása
+    \item Stopszó szűrés: kötőszavak, névelők, jelentés nélküli
+    \item POS tagging: szófajok megjelölése    
+    \end{enumerate}
+\end{lemma}
+
+\begin{lemma}
+    [Szózsák modell]
+    Dokumentumok osztályoza során egy szótárat készítünk, az összes előfordulő szóból,
+    majd az egyes dokumentumokat a szótárból megjelenő szavak előfordulási gyakoriságával jellemezzük.\\
+    \textbf{A szavak sorrendje elveszik.} Ez megoldható ha n-grammokat is használunk, kizárólag unigrammo helyett.
+\end{lemma}
+
+\begin{definition}
+    [Term frequency - inverse document frequency]
+    Szeretnénk, hogy azon szavak amelyek több dokumentumban is előfordulnak, kisebb súlyt kapjanak.
+    Legyen adott $w$ szó, $d$ dokumentum, $D$ az összes dokumentum halmaza, $tf(w, d)$  a $w$ szó előfordulási gyakorisága a $D$ dokumentumban,
+    $df(w, D)$ pedig azon dokumentumok száma az $D$ halmazban, amelyek tartalmazzák a $w$ szót. \\
+    Ekkor a TF-IDF súlyozás:
+    \[
+    TF\_IDF(w, d) = tf(w,d)*log\left(\frac{1}{df(w, D)}\right)
+    \]
+\end{definition}
+
+\begin{definition}
+    [Lineáris osztályozó]
+    Egy adott $n$ dimenziós jellemző térben egy hipersík segítségével választja szét az osztályokat.
+    A hipersík egyenlete:
+    \[
+    w_1x_1 + w_2x_2 + ... + w_nx_n + b = 0
+    \]
+    ahol $w_i$ a súlyok, $b$ az eltolás, megtanulandó paraméterek a predikcióhoz.
+    Az osztályozás a következőképpen történik:
+    \[
+    f:\mathbb{R}^n \to \{-1, 1\}, \quad f(x) = sign(w \cdot x + b)
+    \]
+    ahol $f(x) = 1$ az egyik osztály, $f(x) = -1$ a másik osztály.
+\end{definition}
+
+\begin{definition}
+    [Diszkriminatív vs. generatív módszerek]
+    A diszkriminatív modellek (mint a lineáris gépek) célja, hogy minél pontosabban
+    elválasszák az osztályokat, míg a generatív modellek (mint a döntési fák) a bemeneti adatok
+    eloszlását próbálják modellezni az egyes osztályokra külön-külön.
+\end{definition}
+\begin{remark}
+    A lineáris gépek sok jellemzőt tudnak kezelni, ezek mind hozzájárulnak a döntéshez,
+    viszont ha nem lineáris a változók közötti kapcsolat, akkor gyenge lesz a modell.
+\end{remark}
+
+\newpage
+\section{Deep learning}
+Egy olyan gépi tanulási módszer, mely során több rejtett rétegből álló
+mesterséges neurális hálókat alkalmazunk.
+\begin{definition}
+    [Neuron]
+    \[
+    y = f\left(\sum_{i=1}^{n} w_i x_i + b\right)
+    \]
+    ahol $f$ a nem-lineáris aktivációs függvény, $n$ a bemenetek száma, $w_i$ a súlyok, $b$ az eltolás,
+    $x_i$ a bemenetek, $y$ a kimenet.
+    \\
+    Egy nurális háló tanítása alatt a $w_i$ és $b$ paraméterek olyan beállítását értjük,
+    amikor a \textbf{hibafüggvény} értéke minimális.
+\end{definition}
+
+\begin{definition}
+    [Hibafüggvény]
+    Számszerűsíti a modell predikciójának pontatlanságát.\\
+    Ez lehet MSE, Cross entropy stb\dots
+\end{definition}
+
+\begin{definition}
+    [Epoch]
+    Az adathalmazon történő egy teljes tanulási ciklus.
+\end{definition}
+
+Intuíciót erőltetve a rétegek értelmezésére, az első rétegek végzik az "automatikus"
+jellemzőkinyerést, míg a későbbi rétegek már ezekkel a jellemzőkkel dolgoznak.
+
+\begin{definition}
+    [Konvolúciós neurális háló (CNN)]
+    Olyan neurális háló, amely konvolúciós rétegeket is tartalmaz.
+    Ezek a rétegek kis szűrőket alkalmaznak a bemeneti adatokra,
+    hogy helyi jellemzőket nyerjenek ki. Gyakran használják képfeldolgozási feladatokban.
+\end{definition}
+
+A mély gépi tanulás előnyei a klasszikus módszerekkel szemben:\\
+képesek nyers adatokkal dolgozni és változatos feladatokat meg tudnak oldani.\\
+Cserébe sok adat szükséges a tanítsához, ami meglehtősen számításigényes, valamint black-box.
+
+\newpage
+\section{Reprezentáció tanulás, autodecoder}
+Olyan módszerek amelyek célja, hogy a bemeneti adatoknak egy hatékony elkódolását tanulják meg.
+Jellemzően a cél, hogy egy adott egyedet egy beágyazási vektorral jellemezzünk, amely 
+magában hordozza az adott egyed fontos tulajdonságait.
+\begin{definition}
+    [Önfelügyelt tanulás]
+    Olyan tanulási paradigma, ahol a modell a bemeneti adatok egy részét használja fel
+    a bemenetként, míg a bemeneti adatok másik részét célértékként. Így a modell képes
+    megtanulni a bemeneti adatok belső struktúráját anélkül, hogy külső címkékre lenne szükség.
+
+\end{definition}
+\begin{lemma}
+    [Szóbeágyazások]
+    \textbf{word2vec}\\
+    TODO
+\end{lemma}
+\newpage
+
+\section{Fine-tuning és generatív mesterséges intelligencia}
+Rendelkezésre állnak előre betanított modellek, amelyek szöveg-, vagy képfeldolgozási beágyazásokat végeznek.
+A kódolás eredményét felhasználhatjuk egy adott feladathoz tartozó modell betanításához.
+Ekkor az alsó rétegekben a betanított súlyokat használjuk, míg a felső rétegek súlyait véletlenszerűen inicializáljuk.
+A tanulás során természetesen az alsó rétegek súlyait is módosítjuk, vagyis \textbf{finomhangoljuk} az eredeti modellt.
+
+\subsection*{Szöveggenerálás}
+A GPT típusú modellek az internetetn előtanított beágyazások segítségével képesek adott szósorozathoz megjósolni a
+következő szót a lehetséges angol szavak szótárából. Ezt egy osztályozási feladatként kezelik, vagyis
+a modell megadja a legvalószínűbb következő szót.
+
+
+A ChatGPT egy finomhangolt GPT modell, ahol emberi visszajelzések alapján tovább tanították a modellt,
+így képes a felhasználóval folytatott párbeszédre.
+
+\subsection*{Képgenerálás}
+Ennek az alapjai is egy generálásra finomhangolt beágyazás. Lényegében a tanítópéldák képek, amelyek bizonyos
+részeit letakarjuk, és a modell feladata a hiányzó pixelek kiegészítése.
+
+\subsection*{Képgenerálás instruckió alapján}
+Az előző két módszer ötvözete: egy szöveges leírást (instruckiót) kap a modell, és egy kép generálását kell elvégeznie.
+Itt a szöveges leírást egy előre betanított szöveg beágyazó modell segítségével kódolják.
+
+A diffútiós modellek visszavezetik a generálási feladatot egy zajmentesítési feladatra.
+Az alapgondolat az, hogy van egy zajos képünk, de tudjuk annak tartalmát (szövegesen megadva),
+akkor a szöveges leírás alapján még a nagyon zajos képekből is helyre tudunk állítani egy képet, ami megfelel a leírásnak.
+Ez szintén egy önfelügyelt tanuálási megoldás, hiszen a tanítópéldák képeiből mesterségesen zajosítunk képeket, és a modell feladata a zajmentesítés.
+\end{document}
