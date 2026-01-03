@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="hu">
+
+<head>
+    <meta charset=utf-8>
+    <title>NAGY beadandó</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { width: 100%; height: 100% }
+
+        body { margin: 0; overflow: hidden; }
+        canvas { width: 100%; height: 100% }
+
+        #neptun {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: none;
+            text-align: left;
+            font-family: 'Courier New', monospace;
+            font-size: 20px;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 500px;
+            width: 200px;
+            text-align: center;
+            z-index: 100;
+            display:block;
+            color: black;
+            font-family: 'Courier New', monospace;
+            font-size: 40px;
+            opacity: 0.7;
+        }
+        #info a { color: #f00; font-weight: bold; text-decoration: underline; cursor: pointer }
+
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            text-align: left;
+            z-index: 100;
+            display: none;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 15px;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div id="info">
+    <p id="infopanel"></p>
+</div>
+
+<div id="controls">
+    <p><b>Irányítás</b></p>
+    <p>I : Információ KI/BE</p>
+    <p>1 : Ablak fények </p>
+    <p>2 : Bogár fények</p>
+    <p>L : Nappal-Éjszaka</p>
+    <p>D : Sárkány elrepül/visszajön</p>
+    <p>Egér : Forgatás</p>
+
+</div>
+
+<div id="neptun">
+    <p>Vincze Nándor Ákos</p>
+    <p>MOYLJW</p>
+    <p>Prog. informatikus, 2025/26/I.</p>
+</div>
+
+
+<script async src="./dist/es-module-shims.js"></script>
+<script type="importmap">
+{
+    "imports": {
+        "three": "./js-r178/build/three.module.js",
+        "trackballcontrols": "./js-r178/examples/jsm/controls/TrackballControls.js",
+        "OBJLoader": "./js-r178/examples/jsm/loaders/OBJLoader.js",
+        "MTLLoader": "./js-r178/examples/jsm/loaders/MTLLoader.js",
+        "tween": "./js-r178/examples/jsm/libs/tween.module.js"
+    }
+}
+</script>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OBJLoader } from 'OBJLoader';
+    import { MTLLoader } from 'MTLLoader';
+    import { TrackballControls } from 'trackballcontrols';
+    import * as TWEEN from 'tween';
+
+    let loadedModels = {};
+
+    function loader_obj_mtl(OBJFile, MTLFile, name, manager) {
+        manager.itemStart(OBJFile);
+
+        new MTLLoader()
+            .load(MTLFile, function (materials) {
+                materials.preload();
+                new OBJLoader()
+                    .setMaterials(materials)
+                    .load(OBJFile, function (object) {
+
+                        object.traverse(function (child) {
+                            if (child instanceof THREE.Mesh) {
+                                child.scale.set(3, 3, 3);
+                                child.castShadow = true;
+                                child.receiveShadow = true;
+
+                                child.material = new THREE.MeshPhongMaterial( {
+                                    color: child.material.color,
+                                    shininess: 10,
+                                    specular: 0x000000,
+                                    wireframe: wire_frame} );
+                            }
+                        });
+                        loadedModels[name] = object;
+                        manager.itemEnd(OBJFile);
+                    });
+            });
+    }
+
+    // Globális változók
+    let WIDTH, HEIGHT, aspectRatio;
+    let renderer;
+    let scene, camera;
+    let controls;
+    let wire_frame = false;  // wireframe vagy kitöltött módban való megjelenítés
+
+    let plane_size = 800;
+    let sky_rad = plane_size / 2;
+    let infoPanel;
+
+    let starHolder;
+    let fireFlyHolder;
+    let lombHolder;
+
+    let smurfArray = [];
+    let smurfHolder1;
+    let smurfHolder2;
+    let smurfHolder3;
+
+
+    let dragon;
+
+    // vezerles
+
+    let ff_time = 0;
+    let smurf_time = 0;
+    let windowLightsOn = true;
+    let windowLights = [];
+
+    let fireFlyLightsOn = true;
+    let fireFlyLights = [];
+
+    let day = true;
+    let ambientLight;
+    let moonDirLight;
+    let sunDirLight;
+
+    let dragonAway = false;
+
+    let shadow = true;  // hogy ne robbanjon szét a gép
+    function setInfoPanelText( msg ) {
+        infoPanel.innerHTML = msg;
+    }
+
+    let tree_names = ['tree', 'tree2', 'tree3'];
+    let rock_names = ['rock1', 'rock2', 'rock3', 'rock4', 'rock5'];
+    let trunk_names = ['trunk', 'trunk2']
+    let dragon_name = 'dragon';
+
+    function populateScene() {
+        // fák
+        for (let i = 0; i < 150; i++){
+            let x = 0.75*plane_size*Math.random()-0.75*plane_size/2;
+            let z = 0.75*plane_size*Math.random()-0.75*plane_size/2;
+
+            if(!clipsIntoHouse(x, z, 0, 0) && !clipsIntoHouse(x, z, 10, 70)) {
+                makeTree(x, 0, z, scene, random_choice(tree_names));
+            }
+        }
+        // kövek
+        for (let i = 0; i < 150; i++){
+            let x = plane_size*Math.random()-sky_rad;
+            let z = plane_size*Math.random()-sky_rad;
+
+            if(!clipsIntoHouse(x,z, 0, 0) && !clipsIntoHouse(x,z, 10, 70)) {
+                makeRock(x, 0, z, scene, random_choice(rock_names));
+            }
+        }
+        // fatörzs
+        for (let i = 0; i < 40; i++){
+            let x = plane_size*Math.random()-sky_rad;
+            let z = plane_size*Math.random()-sky_rad;
+
+            if(!clipsIntoHouse(x,z, 0, 0) && !clipsIntoHouse(x,z, 10, 70)) {
+                makeTrunk(x, 0, z, scene, random_choice(trunk_names));
+            }
+        }
+        // sárkány
+        makeDragon(0, 150, -250, scene, dragon_name);
+    }
+
+    init();
+    function init() {
+        // Böngésző ablakméret lekérése és méretarány számítása
+        HEIGHT = window.innerHeight;
+        WIDTH = window.innerWidth;
+        aspectRatio = WIDTH / HEIGHT;
+
+        // Renderer létrehozása és DOM-hoz adása
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setSize( WIDTH, HEIGHT );
+        renderer.setClearColor( 0x000000 );
+        renderer.shadowMap.enabled = shadow;
+        document.body.appendChild( renderer.domElement );
+
+        // Színtér létrehozása
+        scene = new THREE.Scene();
+
+        // Kamera létrehozása és vetítési paramétereinek beállítása
+        camera = new THREE.PerspectiveCamera( 80, aspectRatio, 0.1, 1000 );
+        camera.position.set( -270, 145, -270);
+        camera.lookAt( scene.position.x, scene.position.y + 50, scene.position.z );
+
+        ////////////////// 4. bead: LoadingManager //////////////////
+        infoPanel = document.getElementById( 'infopanel' );
+
+        setInfoPanelText( 'Betöltés...' );
+
+        let manager = new THREE.LoadingManager();
+        manager.onLoad = function () {
+            populateScene();
+            dragon.dir = 1;
+            document.getElementById('info').style.display = 'none';
+            document.getElementById('neptun').style.display = 'block';
+            document.getElementById('controls').style.display = 'block';
+
+            moveDragon();
+            animate();
+        };
+
+        for(let i = 0; tree_names.length > i; ++i){
+            loader_obj_mtl('./assets/my_models/'+tree_names[i]+'.obj', './assets/my_models/'+tree_names[i]+'.mtl', tree_names[i], manager);
+        }
+        for(let i = 0; rock_names.length > i; ++i){
+            loader_obj_mtl('./assets/my_models/'+rock_names[i]+'.obj', './assets/my_models/'+rock_names[i]+'.mtl', rock_names[i], manager);
+        }
+        for(let i = 0; trunk_names.length > i; ++i){
+            loader_obj_mtl('./assets/my_models/'+trunk_names[i]+'.obj', './assets/my_models/'+trunk_names[i]+'.mtl', trunk_names[i], manager);
+        }
+        loader_obj_mtl('./assets/my_models/'+dragon_name+'.obj', './assets/my_models/'+dragon_name+'.mtl', dragon_name, manager);
+
+        let textureLoader = new THREE.TextureLoader(manager);
+
+        ////////////////// event listener //////////////////
+        window.addEventListener('keydown', keyDown);
+
+        function keyDown(event){
+            switch (event.keyCode){
+                case '1'.charCodeAt(0):
+                    windowLightsOn = !windowLightsOn;
+                    toggleWindowLights();
+                    break;
+
+                case '2'.charCodeAt(0):
+                    fireFlyLightsOn = !fireFlyLightsOn;
+                    toggleFireFlyLights();
+                    break;
+
+                case 'L'.charCodeAt(0):
+                    day = !day;
+                    toggleDayNightLight();
+                    break;
+
+                case 'I'.charCodeAt(0):
+                    let controls = document.getElementById('controls');
+                    let neptun = document.getElementById('neptun');
+
+                    if(controls.style.display === 'none'){
+                        controls.style.display = 'block';
+                        neptun.style.display = 'block';
+                    }
+                    else{
+                        controls.style.display = 'none';
+                        neptun.style.display = 'none';
+                    }
+                    break;
+
+                case 'D'.charCodeAt(0):
+                    dragonAway = !dragonAway;
+                    break;
+            }
+        }
+
+        ////////////////// Objektumok létrehozása //////////////////
+
+        starHolder = new THREE.Object3D();
+        fireFlyHolder = new THREE.Object3D();
+        smurfHolder1 = new THREE.Object3D();
+        smurfHolder2 = new THREE.Object3D();
+        smurfHolder3 = new THREE.Object3D();
+        lombHolder = new THREE.Object3D();
+
+        // Talaj
+        let plane_rot = THREE.MathUtils.degToRad(90);
+        let planeGeometry = new THREE.PlaneGeometry( plane_size, plane_size, 2, 3 );
+        let planeMaterial = new THREE.MeshLambertMaterial( { color: 0x194d00, wireframe: wire_frame, side: THREE.doubleSided } );
+        let planeMesh = new THREE.Mesh( planeGeometry, planeMaterial );
+
+        planeMesh.rotation.set(-plane_rot, 0, 0);
+        planeMesh.receiveShadow = true;
+        planeMesh.castShadow = true;
+        scene.add( planeMesh );
+
+        // Ég
+        let skyGeometry = new THREE.SphereGeometry(1, 60, 40);
+        let skyMaterial = new THREE.MeshStandardMaterial({color: 0x050399, side: THREE.BackSide, wireframe: wire_frame});
+        let skyMesh = new THREE.Mesh( skyGeometry, skyMaterial );
+        skyMesh.scale.set(sky_rad, sky_rad, sky_rad);
+
+        scene.add(skyMesh)
+
+        let faceTextures = [];
+
+        for (let i = 1; i <= 4; i++){
+            faceTextures.push(textureLoader.load('./assets/texture/face'+i+'.jpg'))
+        }
+        // Törpeültetés
+        for (let i = 0; i < 50; i++){
+            let x = sky_rad*Math.random()-plane_size/4;
+            let z = sky_rad*Math.random()-plane_size/4;
+
+            if(!clipsIntoHouse(x,z, 0, 0) && !clipsIntoHouse(x,z, 10, 70))  // csúnya house clip check
+                makeSmurf(x, 0, z, scene, random_choice(faceTextures));
+        }
+
+        let doorTexture = textureLoader.load('./assets/texture/door.jpg');
+        let windowTexture = textureLoader.load('./assets/texture/window.jpg');
+        let roofTexture = textureLoader.load('./assets/texture/roof.jpg');
+        makeHouse(0,5,0,scene,doorTexture,windowTexture,roofTexture);
+        makeHouse(10,5,70,scene,doorTexture,windowTexture,roofTexture);
+
+        // Hold
+        let moon_x = sky_rad/2;
+        let moon_z = sky_rad/2;
+        let moon_y = skyY(moon_x, moon_z, sky_rad);
+
+        let moonTexture = textureLoader.load('./assets/texture/moonmap1k.jpg');
+
+        let moonGeometry = new THREE.SphereGeometry(25,32,32);
+        let moonMaterial = new THREE.MeshBasicMaterial({color: 0xffffffff});
+        moonMaterial.map = moonTexture;
+        let moon = new THREE.Mesh(moonGeometry, moonMaterial);
+        moon.position.set(moon_x, moon_y, moon_z)
+
+        starHolder.add(moon);
+
+        // Nap
+        let sunGeometry = new THREE.SphereGeometry(25,32,32);
+        let sunMaterial = new THREE.MeshBasicMaterial({color: 0xf2f20f});
+        let sun = new THREE.Mesh(sunGeometry, sunMaterial);
+        sun.position.set(-moon_x, -moon_y, -moon_z);
+
+        starHolder.add(sun);
+
+
+        // beadandó ambiens fény
+        ambientLight = new THREE.AmbientLight(0xffffff, 1); // 0.4 ízlésesnek tűnik
+        ambientLight.position.set(moon_x, moon_y, moon_z);
+        scene.add(ambientLight);
+
+        // beadandó irányfény
+        moonDirLight = new THREE.DirectionalLight(0xffffff, 1);
+        moonDirLight.position.set(moon_x, moon_y, moon_z);
+        moonDirLight.castShadow = true;
+
+        moonDirLight.shadow.mapSize.width = 512;
+        moonDirLight.shadow.mapSize.height = 512;
+
+        // ezeket nem én találtam ki, de nélkülük úgy tűnik nem működik az árnyék
+        // (talán túl messze van / túl nagy a terület)
+        moonDirLight.shadow.camera.near = 100;
+        moonDirLight.shadow.camera.far = 1000;
+        moonDirLight.shadow.camera.left = -500;
+        moonDirLight.shadow.camera.right = 500;
+        moonDirLight.shadow.camera.top = 500;
+        moonDirLight.shadow.camera.bottom = -500;
+
+        sunDirLight = new THREE.DirectionalLight(0xffffff, 3);
+        sunDirLight.position.set(-moon_x, -moon_y, -moon_z);
+        sunDirLight.castShadow = true;
+
+        sunDirLight.shadow.mapSize.width = 512;
+        sunDirLight.shadow.mapSize.height = 512;
+
+        sunDirLight.shadow.camera.near = 300;
+        sunDirLight.shadow.camera.far = 1000;
+        sunDirLight.shadow.camera.left = -500;
+        sunDirLight.shadow.camera.right = 500;
+        sunDirLight.shadow.camera.top = 500;
+        sunDirLight.shadow.camera.bottom = -500;
+
+        starHolder.add(sunDirLight)
+
+        // csillagozás
+        for(let i = 0; i < 300; i++){
+            let x = 2*sky_rad*Math.random()-sky_rad;
+            let z = 2*sky_rad*Math.random()-sky_rad;
+            let y = skyY(x,z, sky_rad);
+
+            makeStar(x, y, z)
+        }
+
+        // bogarak
+        for(let i = 0; i < 100; i++){
+            let x = 2*sky_rad*Math.random()-sky_rad;
+            let z = 2*sky_rad*Math.random()-sky_rad;
+            let y = 0.5 + 5*Math.random()
+
+            makeFireFly(x,y,z)
+        }
+
+        //////////////////// Holderek hozzáadaása ////////////////////
+
+        scene.add(starHolder);
+        scene.add(fireFlyHolder);
+        scene.add(smurfHolder1);
+        scene.add(smurfHolder2);
+        scene.add(smurfHolder3);
+        scene.add(lombHolder);
+
+        // Az ablak későbbi átméretezése esetén visszahívható függvény megadása
+        window.addEventListener( 'resize', handleWindowResize, wire_frame );
+
+        // Kamera vezérlés
+        controls = new TrackballControls( camera, renderer.domElement );
+        controls.rotateSpeed = 5.0;
+        controls.panSpeed = 1.0;
+    }
+
+    function clipsIntoHouse(x,z, h_x, h_z){
+        // ne ütközzenek az objektumok a házzal
+        return Math.abs(x - h_x) < 20 || Math.abs(z - h_z) < 20;
+    }
+
+    function makeFireFly(x, y, z){
+        let fireflyGroup = new THREE.Group();
+
+        let geometry = new THREE.SphereGeometry(0.3, 8, 8);
+        let material = new THREE.MeshStandardMaterial({color: 0x47ff05, emissive:0x47ff05})
+        let ff = new THREE.Mesh(geometry, material);
+
+        ff.position.set(0, 0, 0);
+
+        // Beadandó pontfény
+        let light = new THREE.PointLight(0x47ff05, 200, 100);
+        light.position.set(0, 0, 0);
+
+        fireflyGroup.add(ff);
+        fireflyGroup.add(light);
+
+        fireflyGroup.position.set(x, y, z);
+
+        fireflyGroup.phase = 20 + 20*Math.random();
+        fireflyGroup.dir = Math.random() > 0.5 ? 1 : -1;
+
+
+        fireFlyLights.push(light);
+        fireFlyHolder.add(fireflyGroup);
+    }
+
+    function makeStar(x, y, z){
+        let geometry = new THREE.SphereGeometry(0.5,8,8);
+        let material = new THREE.MeshBasicMaterial({color: 0xffffff})
+        let star = new THREE.Mesh(geometry, material);
+        star.position.set(x,y,z);
+        starHolder.add(star);
+    }
+
+    function makeTree(x, y, z, scene, name) {
+
+        let treeClone = loadedModels[name].clone();
+        if (!treeClone) return;
+
+        treeClone.position.set(x, y, z);
+        treeClone.rotation.y = 2*Math.PI *Math.random();
+        let random_scale = Math.random();
+        treeClone.scale.set(1+random_scale,1+random_scale,1+random_scale);
+
+
+        scene.add(treeClone);
+    }
+    function makeRock(x, y, z, scene, name) {
+
+        let treeClone = loadedModels[name].clone();
+        if (!treeClone) return;
+
+        treeClone.position.set(x, y, z);
+        treeClone.rotation.y = 2*Math.PI *Math.random();
+        treeClone.scale.set(3+2*Math.random(),3+2*Math.random(),3+2*Math.random());
+
+        scene.add(treeClone);
+    }
+    function makeTrunk(x, y, z, scene, name) {
+
+        let treeClone = loadedModels[name].clone();
+        if (!treeClone) return;
+
+        treeClone.position.set(x, y, z);
+        treeClone.rotation.y = 2*Math.PI *Math.random();
+        let random_scale = 0.1*Math.random();
+        treeClone.scale.set(1+random_scale,1+random_scale,1+random_scale);
+
+
+        scene.add(treeClone);
+    }
+
+    function makeDragon(x, y, z, scene, name) {
+
+        dragon = loadedModels[name].clone();
+        if (!dragon) return;
+
+        dragon.position.set(x, y, z);
+
+        scene.add(dragon);
+    }
+
+
+    function makeSmurf(x, y, z, scene, faceTexture){
+        let smurf = new THREE.Group();
+        //Sapka
+        let geometryHat = new THREE.ConeGeometry( 1, 2, 16 );
+        let materialHat = new THREE.MeshPhongMaterial( {
+            color: 0xf33838,
+            shininess: 50,
+            specular: 0xFFFFFF,
+            wireframe: wire_frame} );
+        let hat = new THREE.Mesh(geometryHat, materialHat );
+        hat.position.set(0,3.3,0);
+        smurf.add(hat);
+
+        //Fej
+        let geometryHead = new THREE.SphereGeometry(1)
+        let materialHead = new THREE.MeshLambertMaterial( {color: 0xf7c05c, wireframe: wire_frame} );
+        let head = new THREE.Mesh(geometryHead, materialHead);
+        materialHead.map = faceTexture;
+        head.position.set(0,1.7,0);
+        smurf.add(head);
+
+        //Test
+        let colors = [0xD9004C, 0xD92200, 0xD98D00, 0x00D98D, 0x004CD9];
+        let geometryBody = new THREE.CylinderGeometry(0.8, 1, 2, 16);
+        let materialBody = new THREE.MeshLambertMaterial( {color: random_choice(colors), wireframe: wire_frame } );
+        let body = new THREE.Mesh(geometryBody, materialBody);
+        body.position.set(0,0,0);
+        hat.rotation.set(0, Math.PI, 0); // beadandó követelmény
+        smurf.add(body);
+
+        let scale = 2;
+
+        smurf.scale.set(scale, scale, scale);
+        smurf.position.set(x,y+scale,z);
+        smurf.rotation.set(0,2*Math.PI*Math.random(),0)
+
+        hat.castShadow = true;
+        head.castShadow = true;
+        body.castShadow = true;
+
+        smurf.dir = Math.random() > 0.5 ? 1 : -1;
+        smurf.phase =  20+20*Math.random();
+
+        let choice = Math.random();
+        if(choice > 0.33){
+            if(choice < 0.66){
+                smurfHolder2.add(smurf);
+            }
+            else{
+                smurfHolder3.add(smurf);
+            }
+        }
+        else{
+            smurfHolder1.add(smurf);
+        }
+
+        smurfArray.push(smurf);
+        //scene.add(smurf);
+    }
+
+    function makeHouse(x, y, z, scene, doorTexture, windowTexture, roofTexture){
+        let house = new THREE.Group();
+
+        // Test
+        let geometryRect = new THREE.BoxGeometry(5, 3, 5);
+        let materialRect = new THREE.MeshLambertMaterial({color:0x9C530B, wireframe: wire_frame});
+        let rect = new THREE.Mesh(geometryRect, materialRect);
+        rect.position.set(0, 0, 0);
+        house.add(rect);
+
+        // Tető
+        let geometryRoof = new THREE.ConeGeometry(3, 4, 4)
+        let materialRoof = new THREE.MeshPhongMaterial({
+            color:0xC4230E,
+            shininess: 10,
+            specular: 0x000000,
+            wireframe: wire_frame});
+        materialRoof.map = roofTexture;
+        let roof = new THREE.Mesh(geometryRoof, materialRoof);
+
+        // Fáradságos forgatás
+        roof.rotation.set(0, THREE.MathUtils.degToRad(45), 0)
+        roof.position.set(0, 3.5, 0);
+        roof.scale.set(1.5, 1, 1.5);
+
+        house.add(roof);
+
+        // ablak
+        let windowPos = [
+            new THREE.Vector3(-2.51, 0.5, -1.5),
+            new THREE.Vector3(2.51, 0.5, -1.5),
+            new THREE.Vector3(-2.51, 0.5, 1.5),
+            new THREE.Vector3(2.51, 0.5, 1.5)]
+
+        let windowMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFAA, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+        windowMaterial.map = windowTexture;
+        let windowGeometry = new THREE.CircleGeometry(0.5, 30);
+
+        for(let i = 0; i < windowPos.length; i++){
+            let window = new THREE.Mesh(windowGeometry, windowMaterial);
+            window.position.copy(windowPos[i]);
+            window.rotation.set(0,THREE.MathUtils.degToRad(90),0)
+            house.add(window);
+
+            let sLight = new THREE.SpotLight( 0xFFFFAA, 12, 100, 0.8);
+            sLight.position.copy(windowPos[i]);
+            sLight.decay = 0.1;
+            sLight.penumbra = 0.4;
+            sLight.castShadow = true;
+
+            windowLights.push(sLight);
+
+            // hogy scalelődjön ez is a house-szal
+            let target = new THREE.Object3D();
+            target.position.set(windowPos[i].x * 2, windowPos[i].y, windowPos[i].z);
+            sLight.target = target;
+
+            house.add(sLight);
+            house.add(target);
+        }
+
+        // ajtó
+        let doorMaterial = new THREE.MeshLambertMaterial({ color: 0xFFAA33, side: THREE.DoubleSide });
+        doorMaterial.map = doorTexture;
+        let doorGeometry = new THREE.PlaneGeometry(1.2, 2);
+        let door = new THREE.Mesh(doorGeometry, doorMaterial);
+        door.position.set(0, 0, -2.51);
+        house.add(door);
+
+        // titok
+        let secretMaterial = new THREE.MeshLambertMaterial({ color: 0xFFAA33, side: THREE.DoubleSide });
+        let secretGeometry = new THREE.SphereGeometry(0.5);
+        let secret = new THREE.Mesh(secretGeometry, secretMaterial);
+        secret.position.set(0, 1, 0);
+        house.add(secret);
+
+        let size = 6;
+        house.position.set(x,y,z);
+        house.scale.set(size, size, size);  // nagyítás
+        rect.castShadow = true;
+        roof.castShadow = true;
+        scene.add(house);
+    }
+
+    function random_choice(list){
+        return list[Math.floor(list.length * Math.random())];
+    }
+
+    function skyY(x,z,sky_radius){
+        // z koordináta x,y alapján ami az égen lesz
+        // x^2 + y^2 + z^2 == sky_radius^2
+        // y = sqrt(sky_radius^2 - x^2 - z^2)
+
+        return Math.sqrt(sky_radius*sky_radius - x*x - z*z)
+    }
+
+    ////////////////// ObjectTesterSkeleton.html-ből származó részek //////////////////
+    function handleWindowResize() {
+        // Az ablak átméretezése esetén a kamera vetítési paraméterek újraszámolása
+        HEIGHT = window.innerHeight;
+        WIDTH = window.innerWidth;
+        console.log( 'WIDTH=' + WIDTH + '; HEIGHT=' + HEIGHT );
+        renderer.setSize( WIDTH, HEIGHT );
+        aspectRatio = WIDTH / HEIGHT;
+        camera.aspect = aspectRatio;
+        camera.updateProjectionMatrix();
+
+        render();
+    }
+
+    function moveDragon() {
+        let currentZ = { z: dragon.position.z };
+        let targetZ = { z: dragon.position.z + dragon.dir * 500};
+
+        let duration = 3000;
+        new TWEEN.Tween(currentZ)
+            .to(targetZ, duration)
+            .onUpdate(function() {
+                dragon.position.z = currentZ.z + dragon.dir*0.5;
+                dragon.position.y = dragon.position.y +0.6*Math.sin(0.01*dragon.position.z)
+                dragon.rotation.x = dragon.rotation.x + 0.007*Math.sin(0.05*dragon.position.z)
+            })
+            .onComplete(function(){
+                dragon.dir = -dragon.dir;
+                if(dragonAway) makeDragonGoAway();
+                else rotateDragon();
+            })
+            .easing(TWEEN.Easing.Linear.None)
+            .start();
+    }
+
+    function rotateDragon() {
+        let currentRotation = { y: dragon.rotation.y };
+        let targetRotation = { y: dragon.rotation.y +  Math.PI };
+
+        let duration = 1000;
+        new TWEEN.Tween(currentRotation)
+            .to(targetRotation, duration)
+            .onUpdate(function() {
+                dragon.rotation.y = currentRotation.y % (2 * Math.PI);
+                dragon.position.z = dragon.position.z + dragon.dir*0.3;
+            })
+            .onComplete(moveDragon)
+
+            .easing(TWEEN.Easing.Quintic.Out)
+            .start();
+    }
+
+    function makeDragonGoAway() {
+        let currentY = { y: dragon.position.y };
+        let targetY = { y: (dragon.position.y > 400 ? 150 : 450)};
+
+        let duration = 2000;
+
+        new TWEEN.Tween(currentY)
+            .to(targetY, duration)
+            .onUpdate(function() {
+                dragon.position.y = currentY.y;
+            })
+            .onComplete(function (){
+                dragonAway = !dragonAway;
+                moveDragon();
+            })
+            .easing(TWEEN.Easing.Elastic.InOut)
+            .start();
+    }
+
+    let smurfJumpPhase = 270;
+
+    function animate() {
+        ff_time += 0.0005;
+        smurf_time += 0.0005;
+
+        requestAnimationFrame(animate);
+
+        controls.update();
+        TWEEN.update();
+
+        starHolder.rotation.x = day ? Math.PI : 0;
+
+        fireFlyHolder.children.forEach(fireFly => {
+            fireFly.position.x += fireFly.dir * Math.sin(ff_time*fireFly.phase)*0.3;
+            fireFly.position.z += fireFly.dir * Math.cos(ff_time*fireFly.phase)*0.3;
+
+            fireFly.position.y += Math.sin(ff_time*fireFly.phase)*0.2;
+        })
+
+        if(day){
+            smurfHolder1.position.y = 2+Math.sin(smurf_time * smurfJumpPhase) * 2;
+            smurfHolder1.scale.y = 1+0.2*Math.sin(smurf_time * smurfJumpPhase);
+
+            smurfHolder2.position.y = 2+Math.sin((Math.PI/2 + smurf_time) * smurfJumpPhase) * 2;
+            smurfHolder2.scale.y = 1+0.2*Math.sin((Math.PI/2 + smurf_time) * smurfJumpPhase);
+
+            smurfHolder3.position.y = 2+Math.sin((Math.PI/3 + smurf_time) * smurfJumpPhase) * 2;
+            smurfHolder3.scale.y = 1+0.2*Math.sin((Math.PI/3 + smurf_time) * smurfJumpPhase);
+
+
+            smurfArray.forEach(smurf => {
+                smurf.position.x += smurf.dir * Math.sin(smurf_time*smurf.phase)*0.3;
+                smurf.position.z += smurf.dir * Math.cos(smurf_time*smurf.phase)*0.3;
+            })
+        }
+
+        render();
+    }
+
+    function render() {
+        // 3D -> 2D vetített kép kiszámítása.
+        // scene 3D színtér képe a camera kamera szemszögéből.
+        renderer.render( scene, camera );
+    }
+
+    function toggleWindowLights(){
+        for(let i = 0; windowLights.length > i; ++i){
+            windowLights[i].intensity = windowLightsOn ? 13 : 0;
+        }
+    }
+
+    function toggleFireFlyLights(){
+        for(let i = 0; fireFlyLights.length > i; ++i){
+            fireFlyLights[i].intensity = fireFlyLightsOn ? 200 : 0;
+        }
+    }
+
+    function toggleDayNightLight(){
+        if(day){
+            sunDirLight.intensity = 3;
+            moonDirLight.intensity = 0;
+
+            ambientLight.color.setHex(0xFFFFFF);
+            ambientLight.intensity = 0.8;
+
+            scene.background = new THREE.Color(0x87CEEB);
+        }
+        else{
+            sunDirLight.intensity = 0;
+            moonDirLight.intensity = 2;
+
+            ambientLight.color.setHex(0x8303ba);
+            ambientLight.intensity = 0.4;
+
+            scene.background = new THREE.Color(0x000000);
+        }
+    }
+
+</script>
+</body>
+</html>
