@@ -70,14 +70,14 @@
 \begin{definition}
     [Gépi tanulás loop]
     gépi tanulási feladat megoldásának lépései:
-    \begin{itemize}
+    \begin{enumerate}
     \item adatgyűjtés
     \item előfeldolgozás
     \item jellemző kinyerés
     \item modell kiválasztás
     \item tanítás
     \item kiértékelés
-    \end{itemize}
+    \end{enumerate}
 \end{definition}
 
 \newpage
@@ -286,8 +286,34 @@ magában hordozza az adott egyed fontos tulajdonságait.
 \begin{lemma}
     [Szóbeágyazások]
     \textbf{word2vec}\\
-    TODO
+    Cél: van egy szótárunk, amely minden eleméhez egy megfelelő vektort rendelünk. Szeretnénk, hogy a hasonló jelentésú
+    szavakhoz közeli vektorok tartozzanak.\\
+    \begin{itemize}
+        \item CBOW (continuous bag of words): adott egy adott szó környezete,
+        a cél, hogy a környezetből megjósoljuk a középső szót (jegyzetben 5 szó)
+        \item Skip-gram: adott egy szó, a cél, hogy megjósoljuk a környezetében található szavakat
+    \end{itemize}
 \end{lemma}
+\begin{lemma}
+    [LLM-ek]
+    A word2vec megközelítések a szavak jelentését statikusan tárolják. A nagy nyelvi modellek ezzel ellentétben
+    teljes mondatok vagy bekezdések reprezentációját tanulják meg. A szóbeágyazások itt kontextusfüggőek.
+\end{lemma}
+\begin{definition}
+    [BERT modellek]
+    Amikor egy szöveget akarunk elemezni, ismerjük a teljes szöveget, így a tanítás során egy adott szót letakarunk (maszkolunk),
+    és a cél, hogy a modell a környező szavak alapján megjósolja a letakart szót.
+\end{definition}
+\begin{definition}
+    [GPT modellek]
+    Amikor szövegek generálása cél, akkor egy szónak csakis a baloldali környezete ismert, ez alapján kell megjósolni a követzkező szót.
+    Itt használjuk a transzformer architektúrát. (???)
+\end{definition}
+\begin{definition}
+    [autodencoder]
+    Olyan neurális háló, amely egy adott bemenetet kódol (jellemzően alacsonyabb dimenzióba), majd visszakódolja.
+    A cél, hogy a kimenet az eredeti bemenet legyen.
+\end{definition}
 \newpage
 
 \section{Fine-tuning és generatív mesterséges intelligencia}
@@ -296,7 +322,7 @@ A kódolás eredményét felhasználhatjuk egy adott feladathoz tartozó modell 
 Ekkor az alsó rétegekben a betanított súlyokat használjuk, míg a felső rétegek súlyait véletlenszerűen inicializáljuk.
 A tanulás során természetesen az alsó rétegek súlyait is módosítjuk, vagyis \textbf{finomhangoljuk} az eredeti modellt.
 
-\subsection*{Szöveggenerálás}
+\subsection{Szöveggenerálás}
 A GPT típusú modellek az internetetn előtanított beágyazások segítségével képesek adott szósorozathoz megjósolni a
 következő szót a lehetséges angol szavak szótárából. Ezt egy osztályozási feladatként kezelik, vagyis
 a modell megadja a legvalószínűbb következő szót.
@@ -305,11 +331,11 @@ a modell megadja a legvalószínűbb következő szót.
 A ChatGPT egy finomhangolt GPT modell, ahol emberi visszajelzések alapján tovább tanították a modellt,
 így képes a felhasználóval folytatott párbeszédre.
 
-\subsection*{Képgenerálás}
+\subsection{Képgenerálás}
 Ennek az alapjai is egy generálásra finomhangolt beágyazás. Lényegében a tanítópéldák képek, amelyek bizonyos
 részeit letakarjuk, és a modell feladata a hiányzó pixelek kiegészítése.
 
-\subsection*{Képgenerálás instruckió alapján}
+\subsection{Képgenerálás instruckió alapján}
 Az előző két módszer ötvözete: egy szöveges leírást (instruckiót) kap a modell, és egy kép generálását kell elvégeznie.
 Itt a szöveges leírást egy előre betanított szöveg beágyazó modell segítségével kódolják.
 
@@ -317,4 +343,127 @@ A diffútiós modellek visszavezetik a generálási feladatot egy zajmentesíté
 Az alapgondolat az, hogy van egy zajos képünk, de tudjuk annak tartalmát (szövegesen megadva),
 akkor a szöveges leírás alapján még a nagyon zajos képekből is helyre tudunk állítani egy képet, ami megfelel a leírásnak.
 Ez szintén egy önfelügyelt tanuálási megoldás, hiszen a tanítópéldák képeiből mesterségesen zajosítunk képeket, és a modell feladata a zajmentesítés.
+
+\section{Képfeldolgozás és lokális osztályozók}
+\begin{definition}
+    [Képosztáylozás]
+    Egy adott képhez tartozó címke (pl.: kutya, macska, autó stb\dots) predikálása.
+\end{definition}
+\begin{definition}
+    [Objektum detektálás]
+    Egy adott képen található objektumok helyének és címkéjének meghatározása.
+\end{definition}
+\begin{definition}
+    [Augmented reality]
+    Egy technológia, amely a valóságot kiegészíti digitális információkkal.
+\end{definition}
+\begin{remark}
+    Az előfeldolgozás kiemelten fontos képes esetén, és eltérő lehet
+    a felhasználási területtől függően.\\
+    \textit{egységes méret, színcsatorna egységesítés}\\
+    Néhány példa a képek jellemzésére:\\
+    \begin{itemize}
+        \item két kép között a távolságot az egyes pixelek páronkénti hasonlósága alapján adjuk meg (pixelvektorok, hasonló struktúrájú képek esetén működik)
+        \item a kép színeloszlását histogramokkal jellemezzük
+        \item képfeldolgozási eszközökkel kinyerhetünk alacsony szintű jellemzőket (élek, sarkok, textúrák stb\dots)
+        majd a szózsák modellhez hasonlóan jellemezhetjük a képeket
+        \item mély neurális hálók segítségével, az utolsó előtti réteg kimenetét használhatjuk jellemzőként
+    \end{itemize}
+\end{remark}
+\begin{definition}
+    [KNN]
+    Ha adott egy távolság metrika, akkor a jellemzőtérben, valós időeben megkeressük
+    a legközelebbi $k$ tanító példát, és ezek címkéinek többségi szavazata alapján predikálunk.
+    
+    Érzékeny a jellemzők skálázására, így érdemes normalizálni az adatokat, illetve dimenzionalitás problémája itt is fenáll.
+\end{definition}
+
+\newpage
+\section{Regressziós feladat}
+Olyna gépi tanulási probléma, ahol a célváltozó folytonos értékű.
+
+\begin{definition}
+    [MSE]
+    \[
+    MSE  = \frac{1}{n}\sum_{i=1}^{n}(y_i-\hat{y}_i)^2
+    \]
+    Ahol $y_i$ a predikált érték, $\hat{y}_i$ a valós érték, $n$ a példák száma.
+\end{definition}
+\begin{definition}
+    [lineáris regresszió]
+    Egy olyan regressziós modell, ahol a célváltozó lineáris függvénye a bemeneti változóknak.
+\end{definition}
+\begin{definition}
+    [regressziós döntési fa]
+    Hasonlóan a döntési fához, de a levelekben folytonos értékek találhatók,
+    a köztes csűcsokben pedig egy-egy regressziós modell, ami egy jellemző mentén 
+    osztja szét az adatokat.
+\end{definition}
+\begin{definition}
+    [Regressziós KNN]
+    Hasonlóan az osztályozási KNN-hez, de a legközelebbi $k$ példa
+    alapján prediktálja az érttékeket, lényegében a $k$ példa célértékeinek átlagát veszi.
+\end{definition}
+
+\newpage
+\section{Túltanulás}
+\begin{definition}
+    [Torzítás]
+    A modell tanítóadatbázison számított hibája.\\
+    \textit{Magas torzítás esetén a modell nem képes jól megtanulni a tanító adatokat.}
+\end{definition}
+\begin{definition}
+    [Variancia]
+    A modell tesztadatbázison számított hibája és a tanító adatbázison számított hiba különbsége.\\
+\end{definition}
+\begin{definition}
+    [Tórzítás-variancia dilemma]
+    A modell torzítása és varianciája közötti kiegyensúlyozás.
+\end{definition}
+Néhány gyakorlati példa:\\
+\begin{itemize}
+    \item Döntési fa: a fa magassága
+    \item Lináris gép: a hibafüggvényhez hozzávesszük a súlyok valamilyen függvényét (L1, L2 regularizáció)
+    \item KNN: a $k$ értéke
+    \item Neurális háló: rétegek száma, neuronok száma, dropout, korai leállítás
+\end{itemize}
+\begin{definition}
+    [Validációs halmaz]
+    Meta-paraméterek finomhangolás során használatos. Az adathalmazt három részre bonrjuk: tanító, validációs, teszt.
+    A paraméterek a tanító és validációs halmazon kerülnek beállításra, majd a teszt halmazon
+    kerül kiértékelésre a végső modell.
+\end{definition}
+
+\newpage
+\section{Reinforcement learning}
+Mestint I. alapú elvek: Egy ágens interaktál a környezetével, és az állapot megváltozása után
+visszajelzést kap. Az ágens célja, hogy maximalizálja a hosszútávú jutalmat.
+
+\begin{definition}
+    [Exploration vs. exploitation]
+    Exploration: új, még nem ismert lehetőségek keresése.
+    Exploitation: már ismert, jól működő lehetőségek kihasználása.
+\end{definition}
+\begin{definition}
+    [$\epsilon$-greedy stratégia]
+    Az ágens $\epsilon$ valószínűséggel véletlenszerűen választ egy lehetőséget (exploration),
+    és $1-\epsilon$ valószínűséggel választja ki a legjobbnak tűnő lehetőséget (exploitation).
+\end{definition}
+\begin{definition}
+    [Value-based módszerek]
+    Az érték-alapú módszerek egy adott állapotból kiinduló összes akcióhoz egy értéket tanulnak,
+    ami azt próbálja megbecsülni, hogy az adott állapotból az adott akció hatására mennyi jutalmat lehet összeszedni a jövőben.
+\end{definition}
+\begin{definition}
+    [Policy-based módszerek]
+    A stratégia-alapú módszerek közvetlenül az egyes döntések valószínűségét próbálják megbecsülni
+    a jövőben összeszedhető jutalom ismerete nélkül.
+\end{definition}
+\begin{remark}
+    Amennyiben már rendelkezésre áll egy a saját feladatunkban használt adattípushoz (kép, szöveg, stb...)
+    előre betanított modell, akkor elhagyva az utolsó réteget, egy megfelelő beágyazást kaphatunk,
+    amit felhasználhatunk a saját feladatunkhoz.\\
+    \textit{Mindenképp figyelni kell arra, hogy habár az adattípus azonos, nem biztos,
+    a saját célunknak megfelelő beágyazást kapunk.}
+\end{remark}
 \end{document}
